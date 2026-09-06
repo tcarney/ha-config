@@ -1,0 +1,287 @@
+# Scheduled Chore/Task Tracker — Template Blueprint
+# Place in: <config>/blueprints/template/chore_tracker/scheduled_task.yaml
+#
+# Creates a sensor that tracks whether a scheduled daily task has been
+# completed, using an entity's state timestamp as the completion signal.
+# Supported trigger entities: NFC tag, input_button, or input_datetime.
+#
+# Sensor states:
+#   completed  — tag was scanned within the current period
+#   pending    — we're inside the early-completion window, not yet scanned
+#   due        — the scheduled time has arrived, not yet scanned
+#   overdue    — past the scheduled time + grace period, not yet scanned
+#
+# Attributes exposed:
+#   last_completed, next_due
+#
+# Status: deprecated here, but complete and self-contained.
+#
+# This predates my chore_calendar integration
+# (https://github.com/tcarney/ha-chore-calendar), which now handles chore
+# tracking in this config.
+
+blueprint:
+  name: "Scheduled Task Tracker"
+  description: >
+    Track a recurring daily task. The sensor computes whether the task
+    is completed, due, or overdue based on a trigger entity's timestamp
+    and a configurable daily schedule. Supports NFC tags, input buttons,
+    or input datetimes as completion triggers.
+  domain: template
+  input:
+    task_id:
+      name: "Task ID"
+      description: >
+        Unique identifier for this task instance. Can be any string.
+        Must be unique across all task tracker instances.
+      selector:
+        text:
+
+    tag_entity:
+      name: "Completion Trigger"
+      description: >
+        The entity whose state holds the last-completed timestamp.
+        Supported types: NFC tag (scan to complete), input_button
+        (press from dashboard), or input_datetime (set by automation).
+      selector:
+        entity:
+          filter:
+            - domain: tag
+            - domain: input_button
+            - domain: input_datetime
+
+    task_name:
+      name: "Task Name (optional)"
+      description: >
+        Friendly name for this task. Leave blank to use the entity's
+        friendly name instead.
+      default: ""
+      selector:
+        text:
+
+    scheduled_time:
+      name: "Scheduled Time"
+      description: >
+        The daily time this task is due (24-hour format, e.g., '08:00').
+      selector:
+        time:
+
+    active_days:
+      name: "Active Days (optional)"
+      description: >
+        Days of the week this task is active. Leave empty for every day.
+      default: []
+      selector:
+        select:
+          multiple: true
+          options:
+            - label: "Monday"
+              value: "mon"
+            - label: "Tuesday"
+              value: "tue"
+            - label: "Wednesday"
+              value: "wed"
+            - label: "Thursday"
+              value: "thu"
+            - label: "Friday"
+              value: "fri"
+            - label: "Saturday"
+              value: "sat"
+            - label: "Sunday"
+              value: "sun"
+
+    early_window:
+      name: "Early Completion Window"
+      description: >
+        How long before the scheduled time a tag scan will count as
+        completing the task. For example, 30 minutes means scanning
+        at 7:30 counts for an 8:00 task.
+      default:
+        hours: 3
+        minutes: 0
+      selector:
+        duration:
+          enable_second: false
+
+    grace_period:
+      name: "Grace Period"
+      description: >
+        How long after the scheduled time before the task is considered
+        'overdue' rather than just 'due'. For example, 1 hour means
+        an 8:00 task becomes overdue at 9:00.
+      default:
+        hours: 1
+        minutes: 0
+      selector:
+        duration:
+          enable_second: false
+
+# ─── Trigger: re-evaluate every minute and when the tag is scanned ───
+
+triggers:
+  - trigger: time_pattern
+    minutes: "/1"
+  - trigger: state
+    entity_id: !input tag_entity
+
+# ─── Expose inputs as variables for use in Jinja templates ───
+
+variables:
+  var_tag_entity: !input tag_entity
+  var_task_name: !input task_name
+  var_scheduled_time: !input scheduled_time
+  var_active_days: !input active_days
+  var_early_window: !input early_window
+  var_grace_period: !input grace_period
+  early_window_mins: >-
+    {{ (var_early_window.hours | default(0) | int) * 60
+     + (var_early_window.minutes | default(0) | int) }}
+  grace_period_mins: >-
+    {{ (var_grace_period.hours | default(0) | int) * 60
+     + (var_grace_period.minutes | default(0) | int) }}
+  # ─── Compute status once so state, icon, and attributes stay in sync ───
+  current_status: >-
+    {## ── Read tag state ── ##}
+    {% set last_scan_str = states(var_tag_entity) %}
+
+    {## ── Parse scheduled time ── ##}
+    {% set sched_h = var_scheduled_time.split(':')[0] | int %}
+    {% set sched_m = var_scheduled_time.split(':')[1] | int %}
+
+    {## ── Active days setup ── ##}
+    {% set days = var_active_days | default([]) %}
+    {% set all_days = days | length == 0 %}
+    {% set day_names = ['mon','tue','wed','thu','fri','sat','sun'] %}
+
+    {## ── Build reference timestamp for today ── ##}
+    {% set today_sched = now().replace(hour=sched_h, minute=sched_m, second=0, microsecond=0) %}
+    {% set today_pending = today_sched - timedelta(minutes=early_window_mins | int) %}
+    {% set past_pending = now() >= today_pending %}
+
+    {## ── Find current period_due (most recent active day at sched time) ── ##}
+    {% set ns = namespace(period_due=none) %}
+    {% for offset in range(0, 8) %}
+      {% if ns.period_due is none %}
+        {% set candidate = today_sched - timedelta(days=offset) %}
+        {% set day_name = day_names[candidate.isoweekday() - 1] %}
+        {% if all_days or day_name in days %}
+          {% if offset == 0 and past_pending %}
+            {% set ns.period_due = candidate %}
+          {% elif offset > 0 %}
+            {% set ns.period_due = candidate %}
+          {% endif %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    {% if ns.period_due is none %}
+      {% set ns.period_due = today_sched - timedelta(days=7) %}
+    {% endif %}
+    {% set period_due = ns.period_due %}
+
+    {## ── Compute pending and overdue boundaries ── ##}
+    {% set pending_at = period_due - timedelta(minutes=early_window_mins | int) %}
+    {% set overdue_at = period_due + timedelta(minutes=grace_period_mins | int) %}
+
+    {## ── Completion: scan after pending_at counts for this period ── ##}
+    {% if last_scan_str in ['unknown', 'unavailable', ''] %}
+      {% set scanned = false %}
+    {% else %}
+      {% set scanned = as_datetime(last_scan_str) >= pending_at %}
+    {% endif %}
+
+    {## ── Compute status ── ##}
+    {% if scanned %}
+      completed
+    {% elif now() >= overdue_at %}
+      overdue
+    {% elif now() >= period_due %}
+      due
+    {% else %}
+      pending
+    {% endif %}
+
+sensor:
+  - unique_id: !input task_id
+
+    name: >-
+      {% if var_task_name | default('') | length > 0 %}
+        {{ var_task_name }}
+      {% else %}
+        {% set friendly = state_attr(var_tag_entity, 'friendly_name') | default('') %}
+        {% if friendly | length > 0 %}
+          {{ friendly }}
+        {% else %}
+          {{ var_tag_entity.split('.', 1)[1] | default(var_tag_entity) | replace('_', ' ') | title }}
+        {% endif %}
+      {% endif %}
+
+    icon: >-
+      {% if current_status == 'completed' %}
+        mdi:check-circle
+      {% elif current_status == 'overdue' %}
+        mdi:alert-circle
+      {% elif current_status == 'due' %}
+        mdi:clock-alert
+      {% else %}
+        mdi:clock-outline
+      {% endif %}
+
+    state: "{{ current_status }}"
+
+    attributes:
+      trigger_entity: "{{ var_tag_entity }}"
+
+      last_completed: >-
+        {% set last_scan_str = states(var_tag_entity) %}
+        {% if last_scan_str in ['unknown', 'unavailable', ''] %}
+          never
+        {% else %}
+          {{ as_datetime(last_scan_str).isoformat() }}
+        {% endif %}
+
+      next_due: >-
+        {% set sched_h = var_scheduled_time.split(':')[0] | int %}
+        {% set sched_m = var_scheduled_time.split(':')[1] | int %}
+        {% set days = var_active_days | default([]) %}
+        {% set all_days = days | length == 0 %}
+        {% set day_names = ['mon','tue','wed','thu','fri','sat','sun'] %}
+        {% set today_sched = now().replace(hour=sched_h, minute=sched_m, second=0, microsecond=0) %}
+        {% set today_pending = today_sched - timedelta(minutes=early_window_mins | int) %}
+        {% set past_pending = now() >= today_pending %}
+        {## ── Find current period_due (same logic as current_status) ── ##}
+        {% set ns = namespace(period_due=none, next_active=none) %}
+        {% for offset in range(0, 8) %}
+          {% if ns.period_due is none %}
+            {% set candidate = today_sched - timedelta(days=offset) %}
+            {% set day_name = day_names[candidate.isoweekday() - 1] %}
+            {% if all_days or day_name in days %}
+              {% if offset == 0 and past_pending %}
+                {% set ns.period_due = candidate %}
+              {% elif offset > 0 %}
+                {% set ns.period_due = candidate %}
+              {% endif %}
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+        {## ── Find next active day after current period ── ##}
+        {% for offset in range(1, 8) %}
+          {% if ns.next_active is none %}
+            {% set candidate = today_sched + timedelta(days=offset) %}
+            {% set day_name = day_names[candidate.isoweekday() - 1] %}
+            {% if all_days or day_name in days %}
+              {% set ns.next_active = candidate %}
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+        {% if not past_pending %}
+          {% set today_day = day_names[now().isoweekday() - 1] %}
+          {% if all_days or today_day in days %}
+            {% set ns.next_active = today_sched %}
+          {% endif %}
+        {% endif %}
+        {## ── Return current period for active states, next for completed ── ##}
+        {% if current_status == 'completed' %}
+          {{ (ns.next_active | default(today_sched + timedelta(days=1))).isoformat() }}
+        {% else %}
+          {{ (ns.period_due | default(today_sched)).isoformat() }}
+        {% endif %}

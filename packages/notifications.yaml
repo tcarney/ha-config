@@ -1,0 +1,62 @@
+notify:
+  - platform: group
+    name: "Tom Notification"
+    services:
+      - action: mobile_app_tom_phone
+
+# scripts to replace/wrap the persistent_notification actions
+#   create: requires a notification id to enforce consistent tracking
+#   dismiss: same as persistent_notification currently
+script:
+  notification_create:
+    alias: "Create Notification"
+    fields:
+      message:
+        selector:
+          text:
+        name: Message
+        description: Message body of the notification.
+        required: true
+      title:
+        selector:
+          text:
+        name: Title
+        description: Optional title of the notification.
+        required: false
+      notification_id:
+        selector:
+          text:
+        name: Notification ID
+        description: ID of the notification. This new notification will overwrite an existing notification with the same ID.
+        required: true
+    sequence:
+      - action: notify.tom_notification
+        data:
+          message: "{{ message }}"
+          title: "{{ title }}"
+          data:
+            tag: "{{ notification_id }}"
+      - action: persistent_notification.create
+        data:
+          message: "{{ message }}"
+          title: "{{ title }}"
+          notification_id: "{{ notification_id }}"
+
+  notification_dismiss:
+    alias: "Dismiss Notification"
+    fields:
+      notification_id:
+        selector:
+          text:
+        name: Notification ID
+        description: ID of the notification. This new notification will overwrite an existing notification with the same ID.
+        required: true
+    sequence:
+      - action: notify.tom_notification
+        data:
+          message: clear_notification
+          data:
+            tag: "{{ notification_id }}"
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: "{{ notification_id }}"

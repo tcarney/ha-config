@@ -1,0 +1,132 @@
+template:
+  # "Ready" latches: the end-of-cycle sensor pulses, so hold it until the
+  # door is opened and the load is taken out.
+  - use_blueprint:
+      path: status_sensors/latching_sensor.yaml
+      input:
+        name: "Washer Ready"
+        unique_id: ge_home_washer_ready
+        set_sources:
+          - binary_sensor.washer_laundry_end_of_cycle
+        clear_sources:
+          - binary_sensor.washer_laundry_door
+        device_class: opening
+        icon_active: mdi:washing-machine-alert
+        icon_idle: mdi:washing-machine
+
+  - use_blueprint:
+      path: status_sensors/latching_sensor.yaml
+      input:
+        name: "Dryer Ready"
+        unique_id: ge_home_dryer_ready
+        set_sources:
+          - binary_sensor.dryer_laundry_end_of_cycle
+        clear_sources:
+          - binary_sensor.dryer_laundry_door
+        device_class: opening
+        icon_active: mdi:tumble-dryer-alert
+        icon_idle: mdi:tumble-dryer
+
+  # state-based entities
+  - sensor:
+      name: "Washer Status"
+      unique_id: ge_home_washer_status
+      icon: "{{ 'mdi:washing-machine-alert' if is_state('binary_sensor.washer_ready', 'on') else 'mdi:washing-machine' }}"
+      availability: "{{ has_value('binary_sensor.washer_ready') }}"
+      state: >
+        {% if is_state("binary_sensor.washer_laundry_door", "on") %}
+          Open
+        {% elif is_state("binary_sensor.washer_ready", "on") %}
+          Ready
+        {% elif is_state("sensor.washer_laundry_machine_state", "Paused") %}
+          Paused
+        {% elif is_state("sensor.washer_laundry_machine_state", "Run") %}
+          {% if is_state("sensor.washer_laundry_cycle", "Ultra Fresh Vent") %}
+            Venting
+          {% elif is_state("sensor.washer_laundry_cycle", "Self Clean") %}
+            Self Clean
+          {% else %}
+            Ready at {{ (states("sensor.washer_laundry_time_remaining") | as_timedelta + now()).strftime('%-I:%M %p') }}
+          {% endif %}
+        {% elif is_state("sensor.washer_laundry_machine_state", "Delay Run") %}
+            Starting at {{ (states("sensor.washer_laundry_delay_time_remaining") | as_timedelta + now()).strftime('%-I:%M %p') }}
+        {% else %}
+          Off
+        {% endif %}
+
+  - sensor:
+      name: "Dryer Status"
+      unique_id: ge_home_dryer_status
+      icon: "{{ 'mdi:tumble-dryer-alert' if is_state('binary_sensor.dryer_ready', 'on') else 'mdi:tumble-dryer' }}"
+      availability: "{{ has_value('binary_sensor.dryer_ready') }}"
+      state: >
+        {% if is_state("binary_sensor.dryer_laundry_door", "on") %}
+          Open
+        {% elif is_state("binary_sensor.dryer_ready", "on") %}
+          Ready
+        {% elif is_state("sensor.dryer_laundry_machine_state", "Paused") %}
+          Paused
+        {% elif is_state("sensor.dryer_laundry_machine_state", "Run") %}
+          Ready at {{ (states("sensor.dryer_laundry_time_remaining") | as_timedelta + now()).strftime('%-I:%M %p') }}
+        {% else %}
+          Off
+        {% endif %}
+
+  - sensor:
+      name: "Washer Smart Dispense"
+      unique_id: ge_home_washer_smart_dispense
+      icon: >
+        {{ 'mdi:washing-machine-alert' if states("sensor.washer_laundry_washer_smart_dispense_loads_left")|int < 4 else 'mdi:washing-machine' }}
+      availability: "{{ has_value('sensor.washer_laundry_washer_smart_dispense_loads_left') }}"
+      state: >
+        {% set loads_left = states("sensor.washer_laundry_washer_smart_dispense_loads_left") %}
+        {% set status = states("sensor.washer_laundry_washer_smart_dispense_tank_status") %}
+        {{ loads_left + " loads left" if status == "Full" else status }}
+
+# counter for self-clean logic
+counter:
+  ge_home_washer_cycles:
+    name: "Washer Cycles"
+    icon: mdi:washing-machine
+
+# track washer cycles and trigger self clean task actions
+automation:
+  - alias: 'Laundry: Wash Cycle Complete'
+    triggers:
+      - platform: state
+        entity_id: binary_sensor.washer_laundry_end_of_cycle
+        from: "off"
+        to: "on"
+    conditions: []
+    actions:
+      - action: counter.increment
+        target:
+          entity_id: counter.washer_cycles
+      - if:
+          - condition: numeric_state
+            entity_id: counter.washer_cycles
+            above: 40
+        then:
+          - action: chore_calendar.update_item
+            data:
+              entity_id: sensor.home_chores_washer_self_clean
+              oneshot:
+                persist: true
+                due_datetime: "{{ now() }}"
+
+    mode: single
+  - alias: 'Laundry: Self Clean Complete'
+    triggers:
+      - platform: state
+        entity_id: sensor.washer_laundry_cycle
+        from: "Self Clean"
+        to: "Ultra Fresh Vent"
+    conditions: []
+    actions:
+      - action: counter.reset
+        target:
+          entity_id: counter.washer_cycles
+      - action: chore_calendar.complete_item
+        data:
+          entity_id: sensor.home_chores_washer_self_clean
+    mode: single

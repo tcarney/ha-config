@@ -1,0 +1,351 @@
+kiosk_mode:
+  mobile_settings:
+    hide_header: true
+  non_admin_settings:
+    kiosk: true
+    hide_settings: true
+    hide_dialog_header_action_items: true
+    hide_dialog_history_show_more: true
+    hide_dialog_logbook_show_more: true
+navbar-templates:
+  main_navbar:
+    routes:
+      - icon: mdi:star
+        url: /nspanel-upstairs/home
+      - icon: mdi:doorbell
+        url: /nspanel-upstairs/doorbell
+      - icon: mdi:home-thermometer-outline
+        url: /nspanel-upstairs/climate
+      - icon: mdi:teddy-bear
+        url: /nspanel-upstairs/kid-room
+views:
+  - type: sections
+    max_columns: 1
+    title: Home
+    path: home
+    icon: mdi:star
+    header: &header-card
+      layout: center
+      badges_position: bottom
+      badges_wrap: scroll
+      card:
+        type: markdown
+        text_only: true
+        content: |-
+          # {{ now().strftime("%I:%M") }}
+          ## {{ now().strftime("%p") }}
+          ### {{ now().strftime("%A, %B %-d") }}
+        card_mod:
+          style:
+            ha-markdown$: |
+              h1 {
+                font-size: 52px !important;
+                font-weight: 680 !important;
+                display: inline;
+              }
+              h2 {
+                font-size: 26px !important;
+                font-weight: 680 !important;
+                opacity: 0.6;
+                display: inline;
+              }
+              h3 {
+                font-size: 18px !important;
+                font-weight: 400 !important;
+                margin-block-start: 0;
+              }
+    badges: &header-badges
+      - type: entity
+        show_name: false
+        show_state: true
+        show_icon: true
+        entity: sensor.home_scene
+        tap_action:
+          action: none
+      - type: entity
+        show_name: true
+        show_state: true
+        show_icon: true
+        entity: sensor.washer_status
+        visibility:
+          - condition: state
+            entity: sensor.washer_status
+            state_not:
+              - 'Off'
+              - Venting
+        tap_action:
+          action: none
+      - type: entity
+        show_name: true
+        show_state: true
+        show_icon: true
+        entity: sensor.dryer_status
+        visibility:
+          - condition: state
+            entity: sensor.dryer_status
+            state_not: 'Off'
+        tap_action:
+          action: none
+    sections:
+      - type: grid
+        cards:
+          - type: custom:bubble-card
+            card_type: button
+            button_type: state
+            entity: weather.home_weather
+            name: Weather
+            show_name: false
+            show_state: false
+            icon: none
+            card_layout: large-2-rows
+            sub_button:
+              main:
+                - name: Conditions
+                  entity: sensor.weather_conditions
+                  show_state: true
+                  show_background: false
+                  tap_action:
+                    action: none
+                - name: Feels Like
+                  entity: sensor.home_weather_feels_like_temperature
+                  show_name: true
+                  show_state: true
+                  show_background: false
+                  tap_action:
+                    action: none
+                - entity: sensor.sun_status
+                  show_name: false
+                  show_state: true
+                  show_background: false
+                  tap_action:
+                    action: none
+              bottom: []
+            styles: |-
+              ha-card {
+                --bubble-border: none;
+              }
+              .bubble-icon-container {
+                display: ${ window.innerWidth > 768 ? "flex" : "none" } !important;
+                border-radius: 100%;
+              }
+              .bubble-icon {
+                --mdc-icon-size: 80px;
+                background-size: cover;
+                background-image:
+                  ${ 
+                    (() => {
+                      const condition = hass.states["weather.home_weather"].state;
+
+                      const icon = 
+                        (condition === "partlycloudy" &&
+                         hass.states["sun.sun"].state === "below_horizon")
+                          ? "/local/weather_icons/partly-cloudy-night.svg"
+                          : `/local/weather_icons/${condition}.svg`;
+
+                      return `url("${icon}")`;
+                    })()
+                  }
+              }
+              .bubble-name-container {
+                line-height: 100px;
+                flex-direction: unset;
+              }
+              .bubble-state {
+                font-size: 42px;
+                font-weight: 680;
+              }
+              .bubble-button-container { 
+                --state-inactive-color: rgba(0,0,0,0);
+                background-color:  rgba(0,0,0,0);
+              } 
+            show_attribute: true
+            attribute: temperature
+            show_icon: true
+            button_action:
+              tap_action:
+                action: none
+            rows: 1.5
+            slider_fill_orientation: left
+            slider_value_position: right
+            tap_action:
+              action: none
+          - type: heading
+            icon: mdi:calendar-today
+            heading: Today
+            heading_style: subtitle
+          - type: custom:week-planner-card
+            calendars:
+              - entity: calendar.family_calendar
+                color: var(--purple-color)
+            days: 1
+            startingDay: today
+            startingDayOffset: 0
+            hideWeekend: false
+            noCardBackground: true
+            compact: false
+            locale: en
+            showLocation: false
+            hidePastEvents: false
+            hideDaysWithoutEvents: false
+            hideTodayWithoutEvents: false
+            combineSimilarEvents: true
+            showLegend: false
+            timeFormat: t
+            showDescription: false
+            showNavigation: false
+            grid_options:
+              columns: full
+            texts:
+              fullDay: All Day
+              noEvents: Nothing Today!
+            showTitle: true
+            dayFormat: ' '
+            updateInterval: 300
+            filter: ^(Check In)$
+            card_mod:
+              style: |
+                .events {
+                  margin: 0 !important;
+                }
+                .end-time { display: none; }
+                .past { opacity: 0.6; }
+          - type: heading
+            icon: mdi:checkbox-multiple-outline
+            heading: Tasks
+            heading_style: subtitle
+          - type: custom:chore-calendar-card
+            entities:
+              - entity: calendar.daily_chores
+            hide_completed: false
+            hide_section_headers: true
+            hide_card_background: true
+            tap_action:
+              action: details
+            double_tap_action:
+              action: complete
+            completed_period:
+              hours: 4
+      - type: grid
+        cards:
+          - type: custom:navbar-card
+            template: main_navbar
+  - type: sections
+    max_columns: 1
+    title: Doorbell
+    path: doorbell
+    icon: mdi:doorbell
+    header: *header-card
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            icon: mdi:doorbell
+            heading_style: subtitle
+            badges:
+              - type: entity
+                show_state: false
+                show_icon: true
+                entity: switch.front_doorbell_chime
+                tap_action:
+                  action: toggle
+              - type: entity
+                show_state: true
+                show_icon: false
+                entity: binary_sensor.front_doorbell_button
+                state_content: last_changed
+            heading: Doorbell
+          - type: custom:scrypted-nvr-camera
+            id: 54
+        column_span: 1
+      - type: grid
+        cards:
+          - type: custom:navbar-card
+            template: main_navbar
+  - type: sections
+    max_columns: 1
+    title: Kid's Room
+    path: kid-room
+    icon: mdi:teddy-bear
+    header: *header-card
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            icon: mdi:teddy-bear
+            heading: Kid Bedroom
+            heading_style: subtitle
+            badges:
+              - type: entity
+                show_state: true
+                show_icon: true
+                entity: sensor.kid_bedroom_rts_air_temperature
+                tap_action:
+                  action: more-info
+              - type: entity
+                show_state: true
+                show_icon: true
+                entity: sensor.kid_bedroom_rts_humidity
+                tap_action:
+                  action: more-info
+          - type: media-control
+            entity: media_player.kid_yoto
+            card_mod:
+              style: |
+                .more-info {
+                  display: none !important;
+                }
+          - type: tile
+            entity: light.kid_bedroom_lamps
+            name: Lamps
+            hide_state: true
+            vertical: false
+            features:
+              - type: light-brightness
+            features_position: inline
+          - type: tile
+            entity: light.kid_bedroom_lights
+            features_position: inline
+            vertical: false
+            hide_state: true
+            name: Ceiling Lights
+            features:
+              - type: light-brightness
+          - features:
+              - type: fan-speed
+            type: tile
+            entity: fan.kid_bedroom_ceiling_fan
+            features_position: inline
+            vertical: false
+            hide_state: true
+      - type: grid
+        cards:
+          - type: custom:navbar-card
+            template: main_navbar
+  - type: sections
+    max_columns: 1
+    title: Climate
+    path: climate
+    icon: mdi:home-thermometer-outline
+    header: *header-card
+    sections:
+      - type: grid
+        cards:
+          - type: thermostat
+            entity: climate.econet_thermostat
+            show_current_as_primary: true
+            features:
+              - type: climate-hvac-modes
+            name: ' '
+            card_mod:
+              style: |
+                ha-card {
+                  background: none;
+                  border: none;
+                }
+                .more-info {
+                  display: none !important;
+                }
+      - type: grid
+        cards:
+          - type: custom:navbar-card
+            template: main_navbar

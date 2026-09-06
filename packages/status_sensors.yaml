@@ -1,0 +1,229 @@
+## Sensor templates for aggregate states
+template:
+  - use_blueprint:
+      path: status_sensors/group_state_counter.yaml
+      input:
+        name: "Open Alarm Perimeter"
+        unique_id: c88c_open_alarm_perimeter
+        sources:
+          - binary_sensor.activity_alarm_perimeter
+        match_states:
+          - "on"
+        unit_of_measurement: "Open"
+        icon_active: mdi:door-open
+        icon_idle: mdi:door-closed
+
+  - sensor:
+      name: "Locks Unlocked"
+      unique_id: c88c_locks_unlocked
+      unit_of_measurement: "Unlocked"
+      icon: "{{ 'mdi:lock' if is_state('sensor.locks_unlocked', '0') else 'mdi:lock-open-variant' }}"
+      state: >
+        {{ (states.lock | selectattr('state', 'eq', 'unlocked') | list | count) + 
+           (states.cover | selectattr('state', 'eq', 'open') | list | count) }}
+      attributes:
+        details: >
+          {% set ns = namespace(items=[]) %}
+          {% for s in states.lock if s.state == 'unlocked' %}
+            {% set ns.items = ns.items + [
+              {
+                "entity": s.entity_id,
+                "last_changed": s.last_changed.isoformat()
+              }
+            ] %}
+          {% endfor %}
+          {% for s in states.cover if s.state == 'open' %}
+            {% set ns.items = ns.items + [
+              {
+                "entity": s.entity_id,
+                "last_changed": s.last_changed.isoformat()
+              }
+            ] %}
+          {% endfor %}
+          {{ ns.items }}
+
+  - sensor:
+      name: "Light Areas On"
+      unique_id: c88c_light_areas_on
+      unit_of_measurement: "Rooms"
+      icon: "{{ 'mdi:lamps-outline' if is_state('sensor.light_areas_on', '0') else 'mdi:lamps' }}"
+      state: >
+        {{ states.light
+           | selectattr('entity_id', 'match', '^(light).area_*') 
+           | selectattr('state', 'eq', 'on')
+           | list
+           | count }}
+
+  - use_blueprint:
+      path: status_sensors/group_state_counter.yaml
+      input:
+        name: "Upstairs Fans On"
+        unique_id: c88c_upstairs_fans_on
+        sources:
+          - fan.upstairs_fans
+        match_states:
+          - "on"
+        unit_of_measurement: "Fans On"
+        icon_active: mdi:fan
+        icon_idle: mdi:fan-off
+
+  - use_blueprint:
+      path: status_sensors/group_state_counter.yaml
+      input:
+        name: "Media Players"
+        unique_id: c88c_media_players
+        sources:
+          - media_player.home_media_players
+        match_states:
+          - "playing"
+        unit_of_measurement: "Playing"
+        icon_active: mdi:speaker-play
+        icon_idle: mdi:speaker
+
+  - sensor:
+      - name: "Active Alerts"
+        unique_id: alert_count
+        state: >
+          {% set alert_entities = label_entities('alerts') | list %}
+
+          {% set ns = namespace(count=0) %}
+
+          {# binary_sensor with label 'alerts' and state 'on' #}
+          {% for entity_id in alert_entities
+             if (entity_id.startswith('binary_sensor.') or
+                 entity_id.startswith('input_boolean.'))
+             and states(entity_id) == 'on' %}
+            {% set ns.count = ns.count + 1 %}
+          {% endfor %}
+
+          {# sensor with label 'alerts' and numeric state < 20 #}
+          {% for entity_id in alert_entities
+             if entity_id.startswith('sensor.')
+             and states(entity_id) | float(-1) < 20
+             and states(entity_id) not in ['unavailable', 'unknown', 'none'] %}
+            {% set ns.count = ns.count + 1 %}
+          {% endfor %}
+
+          {{ ns.count }}
+        unit_of_measurement: "Alerts"
+        icon: mdi:bell-alert
+
+  # Sun sub-button text: counts down to the next sunrise/sunset, or reports the
+  # UV index when it is high enough to matter. Re-renders every minute because
+  # of now(); the state only actually changes when the wording does.
+  - sensor:
+      name: "Sun Status"
+      unique_id: c88c_sun_status
+      icon: >
+        {% set uv = states('sensor.home_weather_uv_index') | float(-1) | round(0) | int %}
+        {% if uv >= 5 %}
+          mdi:weather-sunny-alert
+        {% elif is_state('sun.sun', 'below_horizon') %}
+          mdi:weather-night
+        {% else %}
+          mdi:white-balance-sunny
+        {% endif %}
+      state: >
+        {% set uv = states('sensor.home_weather_uv_index') | float(-1) | round(0) | int %}
+        {% if uv >= 5 %}
+          UV Index · {{ uv }}
+        {% else %}
+          {% set night = is_state('sun.sun', 'below_horizon') %}
+          {% set target = state_attr('sun.sun', 'next_rising' if night else 'next_setting') %}
+          {% if target is none %}
+            Unknown
+          {% else %}
+            {% set mins = [0, ((target | as_timestamp - now().timestamp()) / 60) | int] | max %}
+            {% set units = [('year', 525600), ('month', 43200), ('day', 1440), ('hour', 60), ('minute', 1)] %}
+            {% set ns = namespace(text=none) %}
+            {% for unit, size in units %}
+              {% if ns.text is none and mins >= size %}
+                {% set value = (mins / size) | int %}
+                {% set ns.text = value ~ ' ' ~ unit ~ ('' if value == 1 else 's') %}
+              {% endif %}
+            {% endfor %}
+            {{ 'Sunrise' if night else 'Sunset' }} in {{ ns.text if ns.text else '0 minutes' }}
+          {% endif %}
+        {% endif %}
+
+  - trigger:
+      - platform: time_pattern
+        hours: "/1"
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id: weather.home_weather
+        to:
+    action:
+      - action: weather.get_forecasts
+        target:
+          entity_id: weather.home_weather
+        data:
+          type: hourly
+        response_variable: forecast_response
+    sensor:
+      - name: "Weather Conditions"
+        unique_id: c88c_weather_conditions
+        icon: >
+          {% set condition = states('weather.home_weather') %}
+          {% set icons = {
+            'clear-night': 'mdi:weather-night',
+            'cloudy': 'mdi:weather-cloudy',
+            'exceptional': 'mdi:alert-outline',
+            'fog': 'mdi:weather-fog',
+            'hail': 'mdi:weather-hail',
+            'lightning': 'mdi:weather-lightning',
+            'lightning-rainy': 'mdi:weather-lightning-rainy',
+            'partlycloudy': 'mdi:weather-partly-cloudy',
+            'pouring': 'mdi:weather-pouring',
+            'rainy': 'mdi:weather-rainy',
+            'snowy': 'mdi:weather-snowy',
+            'snowy-rainy': 'mdi:weather-snowy-rainy',
+            'sunny': 'mdi:weather-sunny',
+            'windy': 'mdi:weather-windy',
+            'windy-variant': 'mdi:weather-windy-variant'
+          } %}
+          {{ icons.get(condition, 'mdi:weather-cloudy-alert') }}
+        state: >
+          {% set current = state_attr('weather.home_weather', 'temperature') | float %}
+          {% set forecasts = forecast_response['weather.home_weather']['forecast'] %}
+          {% set ns = namespace(high = current, low = current) %}
+          {% set now_ts = now().timestamp() %}
+          {% set cutoff_ts = now_ts + (7 * 3600) %}
+          {% for f in forecasts %}
+            {% set f_ts = as_timestamp(f.datetime) %}
+            {% if f_ts >= now_ts and f_ts <= cutoff_ts %}
+              {% if f.temperature > ns.high %}{% set ns.high = f.temperature %}{% endif %}
+              {% if f.temperature < ns.low %}{% set ns.low = f.temperature %}{% endif %}
+            {% endif %}
+          {% endfor %}
+          {% set condition = states('weather.home_weather') %}
+          {% set display = {
+            'clear-night': 'Clear',
+            'cloudy': 'Cloudy',
+            'exceptional': 'Exceptional',
+            'fog': 'Foggy',
+            'hail': 'Hail',
+            'lightning': 'Thunderstorms',
+            'lightning-rainy': 'Thunderstorms',
+            'partlycloudy': 'Partly Cloudy',
+            'pouring': 'Heavy Rain',
+            'rainy': 'Rainy',
+            'snowy': 'Snowy',
+            'snowy-rainy': 'Wintry Mix',
+            'sunny': 'Sunny',
+            'windy': 'Windy',
+            'windy-variant': 'Windy'
+          } %}
+          {% set label = display.get(condition, condition | capitalize) %}
+          {% set show_high = (ns.high - current) > 2 %}
+          {% set show_low = (current - ns.low) > 2 %}
+          {% if show_high and show_low %}
+            {{ label }} · {{ ns.high | round(0) | int }}°F / {{ ns.low | round(0) | int }}°F
+          {% elif show_high %}
+            {{ label }} · High {{ ns.high | round(0) | int }}°F
+          {% elif show_low %}
+            {{ label }} · Low {{ ns.low | round(0) | int }}°F
+          {% else %}
+            {{ label }}
+          {% endif %}

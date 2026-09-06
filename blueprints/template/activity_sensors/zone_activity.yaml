@@ -1,0 +1,82 @@
+# Zone Activity
+# Place in: <config>/blueprints/template/activity_sensors/zone_activity.yaml
+#
+# Rolls several "something happened" sensors into one that stays on for a
+# while afterwards, so a zone reads as active rather than as a stream of
+# individual events.
+#
+# Any source turning on turns this on; it clears itself once the idle timeout
+# passes with nothing further. Because each trigger restarts the timeout, a
+# zone being used continuously stays on rather than flickering between events.
+#
+# Sources are usually the perimeter (doors, windows) and motion sensors for
+# one area, each already collected with a binary_sensor group so this sensor
+# takes two inputs instead of ten. Nesting works: a zone built from other
+# zones behaves the same way.
+#
+# Only the transition to "on" is watched. The timeout decides when the zone is
+# quiet, not the sensors.
+
+blueprint:
+  name: "Zone Activity"
+  description: >
+    Combine motion and opening sensors into a single zone activity sensor
+    that stays on for a set time after the last event. Turns on the moment
+    any source does, and clears itself once the zone has been idle.
+  domain: template
+  input:
+    name:
+      name: "Name"
+      description: Friendly name for the zone sensor.
+      selector:
+        text:
+    unique_id:
+      name: "Unique ID"
+      description: >
+        Stable ID for the entity registry. Changing it creates a new entity
+        and abandons the old one, so set it once and leave it alone.
+      selector:
+        text:
+    sources:
+      name: "Sources"
+      description: >
+        Sensors that count as activity. Any one of them turning on marks the
+        zone active. Groups work, and so do other zone sensors.
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: binary_sensor
+    idle_timeout:
+      name: "Idle Timeout"
+      description: >
+        How long the zone stays active after the last event. Each new event
+        restarts it.
+      default:
+        hours: 0
+        minutes: 15
+        seconds: 0
+      selector:
+        duration:
+    device_class:
+      name: "Device Class"
+      description: How the zone reports itself to the frontend.
+      default: motion
+      selector:
+        select:
+          options:
+            - motion
+            - occupancy
+            - presence
+
+triggers:
+  - trigger: state
+    entity_id: !input sources
+    to: "on"
+
+binary_sensor:
+  - name: !input name
+    unique_id: !input unique_id
+    device_class: !input device_class
+    state: "on"
+    auto_off: !input idle_timeout

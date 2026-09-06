@@ -1,0 +1,119 @@
+# Latching Sensor
+# Place in: <config>/blueprints/template/status_sensors/latching_sensor.yaml
+#
+# A binary sensor that remembers which of two events happened most recently.
+# One set of sensors turns it on, another turns it off, and it holds that
+# state in between.
+#
+# Both events are read as edges: the moment a source goes from off to on. That
+# is the difference between "the door is open" and "the door was opened", and
+# it is what lets the sensor stay on long after the event that set it has passed.
+#
+# The sensor waits for the clearing event however long that takes; for
+# something that should give up on its own, use a timeout-based sensor instead.
+#
+# The state is restored on both reload and restart, so a latch set overnight
+# is still set in the morning. It reads unknown only with nothing to restore:
+# first setup, or restore data that has aged out after seven days.
+
+blueprint:
+  name: "Latching Sensor"
+  description: >
+    A binary sensor set by one event and cleared by another, holding its
+    state in between. Both sides trigger on the off-to-on edge of their
+    sources, so momentary pulses are remembered rather than missed.
+  domain: template
+  input:
+    name:
+      name: "Name"
+      description: Friendly name for the sensor.
+      selector:
+        text:
+    unique_id:
+      name: "Unique ID"
+      description: >
+        Stable ID for the entity registry. Changing it creates a new entity
+        and abandons the old one, so set it once and leave it alone.
+      selector:
+        text:
+    set_sources:
+      name: "Turns On When"
+      description: >
+        Any of these going from off to on latches the sensor on.
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: binary_sensor
+            - domain: input_boolean
+            - domain: switch
+    clear_sources:
+      name: "Turns Off When"
+      description: >
+        Any of these going from off to on releases the latch.
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: binary_sensor
+            - domain: input_boolean
+            - domain: switch
+    device_class:
+      name: "Device Class"
+      description: >
+        How the sensor reports itself to the frontend, and what its two states
+        are called. `problem` reads as Detected/OK, `opening` as Open/Closed.
+      default: problem
+      selector:
+        select:
+          custom_value: true
+          options:
+            - problem
+            - running
+            - opening
+            - occupancy
+            - presence
+            - safety
+            - tamper
+            - sound
+            - motion
+    icon_active:
+      name: "Icon When Latched"
+      description: Icon while the sensor is on.
+      selector:
+        icon:
+    icon_idle:
+      name: "Icon When Clear"
+      description: Icon while the sensor is off.
+      selector:
+        icon:
+
+variables:
+  icon_active: !input icon_active
+  icon_idle: !input icon_idle
+
+triggers:
+  - trigger: state
+    entity_id: !input set_sources
+    from: "off"
+    to: "on"
+    id: set
+  - trigger: state
+    entity_id: !input clear_sources
+    from: "off"
+    to: "on"
+    id: clear
+
+binary_sensor:
+  - name: !input name
+    unique_id: !input unique_id
+    device_class: !input device_class
+
+    # Which trigger fired is the state. Nothing is read back from the
+    # sources, so the two sides never have to agree about levels.
+    state: "{{ trigger.id == 'set' }}"
+
+    # Taken from the trigger for the same reason the state is: reading this
+    # sensor's own state here would return the value from before this render,
+    # leaving the icon a step behind.
+    icon: "{{ icon_active if trigger.id == 'set' else icon_idle }}"

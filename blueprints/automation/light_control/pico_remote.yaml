@@ -1,0 +1,116 @@
+# Pico Area Light Control
+# Place in: <config>/blueprints/automation/light_control/pico_remote.yaml
+#
+# Ordered, group-aware light control from a Lutron Caseta Pico remote.
+#
+# This blueprint holds only the Pico-specific parts: the button events, the
+# mapping from Caseta's button names onto the script's vocabulary, and
+# settling between queued presses. How the lights behave lives in
+# python_scripts/light_control.py and is documented there. That script is
+# what another controller reuses; a blueprint for a different remote needs
+# only its own trigger and mapping.
+#
+# The favorite level and dimmer granularity are exposed as inputs and passed
+# straight through, so each room can be tuned from its own instance rather
+# than by editing the shared script.
+#
+# Requires python_scripts/light_control.py from this repo, and the
+# python_script integration enabled in configuration.yaml.
+
+blueprint:
+  name: "Pico Area Light Control"
+  description: >
+    Ordered light control from a Lutron Caseta Pico remote. Each entry in the
+    list below is one step: a press of "on" lights the first, a second press
+    adds the next, and "off" unwinds in reverse. An entry may be a light
+    group. The behavior is implemented by python_script.light_control.
+  domain: automation
+  input:
+    pico:
+      name: "Pico Remote"
+      description: The Pico that fires the button events.
+      selector:
+        device:
+          filter:
+            - integration: lutron_caseta
+    lights:
+      name: "Lights"
+      description: >
+        Ordered list of lights. Each entry is one step of the on/off
+        sequence and may be a single light or a light group. The first
+        entry is turned on first and off last.
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: light
+    favorite:
+      name: "Favorite Level"
+      description: >
+        The level the middle button selects, as a fraction of full
+        brightness. Passed straight through to the script.
+      default: 0.5
+      selector:
+        number:
+          min: 0
+          max: 1
+          step: 0.05
+          mode: slider
+    steps:
+      name: "Dimmer Steps"
+      description: >
+        How many presses of raise or lower cross the full range. Fewer means
+        larger jumps. Passed straight through to the script.
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 20
+          step: 1
+          mode: slider
+
+mode: queued
+max: 5
+
+# The Caseta integration fires button events keyed by device, so this is one
+# of the cases where a device reference is correct rather than an entity one.
+triggers:
+  - trigger: event
+    event_type: lutron_caseta_button_event
+    event_data:
+      device_id: !input pico
+      action: press
+
+conditions: []
+
+actions:
+  # Snapshot brightness so the wait below can tell that the call landed.
+  # Watching the entries themselves is enough: a group's brightness moves
+  # whenever a member does.
+  - variables:
+      lights: !input lights
+      before: >
+        {{ lights | map('state_attr', 'brightness') | list }}
+
+  - action: python_script.light_control
+    data:
+      # Caseta calls the middle button "stop"; the script calls that level
+      # "favorite". Mapping device names onto the script's vocabulary is this
+      # blueprint's job.
+      button: >
+        {% set pressed = trigger.event.data.button_type %}
+        {{ 'favorite' if pressed == 'stop' else pressed }}
+      lights: !input lights
+      favorite: !input favorite
+      steps: !input steps
+
+  # Let the lights settle before the next queued press is processed, so a held
+  # button ramps smoothly instead of stacking calls against stale state.
+  #
+  # This is wait_template rather than wait_for_trigger on purpose: unlike a
+  # trigger, it returns immediately if the change already landed instead of
+  # sitting out the timeout.
+  - wait_template: >
+      {{ lights | map('state_attr', 'brightness') | list != before }}
+    timeout:
+      seconds: 1

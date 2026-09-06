@@ -1,0 +1,57 @@
+
+# Loads default set of integrations. Do not remove.
+default_config:
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+python_script:
+
+homeassistant:
+  packages: !include_dir_named packages
+
+# nginx proxy access (deprecated in 2026.8)
+# http:
+#   use_x_forwarded_for: true
+#   trusted_proxies:
+#     - 172.16.0.0/12
+
+recorder:
+  commit_interval: 180
+  purge_keep_days: 30
+
+## Frontend modules and config
+frontend:
+  themes: !include_dir_merge_named themes
+  extra_module_url:
+    - /hacsfiles/lovelace-card-mod/card-mod.js?hacstag=190927524421
+    - /hacsfiles/Bubble-Card/bubble-pop-up-fix.js
+
+## Dashboards (yaml mode; top-level lovelace mode stays storage)
+lovelace:
+  dashboards:
+    nspanel-upstairs:
+      mode: yaml
+      filename: dashboards/nspanel_upstairs.yaml
+      title: Upstairs
+      icon: mdi:cellphone
+      show_in_sidebar: true
+    tablet-dashboard:
+      mode: yaml
+      filename: dashboards/tablet.yaml
+      title: Tablet
+      icon: mdi:tablet-dashboard
+      show_in_sidebar: true
+    dashboard-calendar:
+      mode: yaml
+      filename: dashboards/calendar.yaml
+      title: Calendar
+      icon: mdi:calendar
+      show_in_sidebar: true
+
+# https://www.home-assistant.io/integrations/logger/
+logger:
+  default: info
+  logs:
+    # integration development
+    custom_components.chore_calendar: debug

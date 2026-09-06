@@ -1,0 +1,85 @@
+generic_hygrostat:
+  - name: Basement Dehumidifier
+    unique_id: generic_basement_dehum
+    device_class: dehumidifier
+    humidifier: switch.kasa_plug_six
+    target_sensor: sensor.basement_rts_humidity
+    target_humidity: 50
+    dry_tolerance: 0
+    wet_tolerance: 4
+    min_cycle_duration:
+      minutes: 5
+    sensor_stale_duration:
+      minutes: 60
+
+automation:
+  alias: "Climate: Sync Dehumidifiers"
+  id: climate_sync_dehumidifiers
+  description: "Sync main thermostat humidity target to basement"
+  mode: single
+  triggers:
+    - trigger: state
+      entity_id:
+        - climate.econet_thermostat
+        - humidifier.basement_dehumidifier
+      attribute: humidity
+    - trigger: state
+      entity_id:
+        - humidifier.basement_dehumidifier
+      attribute: action
+      to: 'idle'
+    - trigger: state
+      entity_id:
+        - sensor.econet_operating_mode
+  conditions: []
+  actions:
+    - variables:
+        offset: 0
+    - if:
+        - or:
+            - condition: state
+              entity_id: humidifier.basement_dehumidifier
+              attribute: action
+              state: drying
+            - condition: state
+              entity_id: sensor.econet_operating_mode
+              state: "Low Cool"
+      then:
+        - variables:
+            offset: 0
+    - action: humidifier.set_humidity
+      metadata: {}
+      data:
+        humidity: >-
+          {{ state_attr('climate.econet_thermostat', 'humidity') + offset }}
+      target:
+        entity_id: humidifier.basement_dehumidifier
+
+fan:
+  - platform: group
+    unique_id: upstairs_fans
+    name: "Upstairs Fans"
+    entities:
+      - fan.kid_bedroom_ceiling_fan
+      - fan.guest_bedroom_ceiling_fan
+      - fan.master_bedroom_ceiling_fan
+      - fan.office_ceiling_fan
+
+  - platform: group
+    unique_id: purifier_fans
+    name: "Air Purifier Fans"
+    entities:
+      - fan.basement_purifier_fan
+      - fan.family_room_purifier_fan
+      - fan.master_bedroom_purifier_fan
+      - fan.kid_bedroom_purifier_fan
+
+input_select:
+  circulation_mode:
+    name: "Circulation Mode"
+    options:
+      - "Off"
+      - "Sleep"
+      - "Low"
+      - "High"
+    icon: mdi:fan-auto

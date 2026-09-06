@@ -1,0 +1,81 @@
+blueprint:
+  name: Sensor Left Open
+  description: >
+    Sends a notification when a binary sensor is left open for a set time,
+    and clears the notification when it closes. The notification tag is
+    unique per sensor, so different sensors don't overwrite each other.
+  domain: automation
+  input:
+    target_sensor:
+      name: Sensor
+      description: The binary sensor to monitor (e.g., door, window).
+      selector:
+        entity:
+          domain: binary_sensor
+    delay_minutes:
+      name: Delay before notifying
+      description: How many minutes the sensor must stay open before sending a notification.
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 120
+          unit_of_measurement: minutes
+          mode: slider
+    notify_service:
+      name: Notify Service
+      description: The `notify` service to use (e.g., `notify.family` or `notify.mobile_app_phone`).
+      selector:
+        text:
+          prefix: notify.
+    notification_title:
+      name: Notification Title
+      default: "{{ entity_name }} Left Open"
+      selector:
+        text: {}
+    notification_message:
+      name: Notification Message
+      default: "The {{ entity_name }} has been left open for more than {{ delay_minutes }} minutes."
+      selector:
+        text: {}
+
+mode: single
+variables:
+  target_sensor: !input target_sensor
+  delay_minutes: !input delay_minutes
+  entity_name: "{{ state_attr(target_sensor, 'friendly_name') or target_sensor }}"
+  notification_tag: "{{ target_sensor | replace('.', '_') }}_left_open"
+
+trigger:
+  - platform: state
+    entity_id: !input target_sensor
+    to: 'on'
+    for:
+      minutes: !input delay_minutes
+    id: open
+  - platform: state
+    entity_id: !input target_sensor
+    to: 'off'
+    id: closed
+
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: open
+        sequence:
+          - service: !input notify_service
+            data:
+              title: !input notification_title
+              message: !input notification_message
+              data:
+                tag: "{{ notification_tag }}"
+      - conditions:
+          - condition: trigger
+            id: closed
+        sequence:
+          - service: !input notify_service
+            data:
+              message: clear_notification
+              data:
+                tag: "{{ notification_tag }}"

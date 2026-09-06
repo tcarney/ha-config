@@ -1,0 +1,103 @@
+## Home Scene Control
+#
+#  These entities set the current state of the home
+#  
+#  input_select.home_scene: 
+#    Scene as set by the user, exposed to HomeKit for schedules, etc.
+#
+#  sensor.home_scene:
+#     Current home scene which accounts for user input and any other state conditions
+#
+#  automations:
+#     One automation for each scene value, these define the actions for each scene transition
+input_select:
+  home_scene:
+    name: "Home Scene"
+    options:
+      - "Morning"
+      - "Day"
+      - "Bedtime"
+      - "Night"
+    icon: mdi:home-clock-outline
+
+template:
+  - sensor:
+      name: "Home Scene"
+      unique_id: c88c_home_scene
+      state: "{{ states('input_select.home_scene') }}"
+      icon: >
+        {% set s = states('sensor.home_scene') %}
+        {% if s == 'Morning' %}
+          mdi:alarm
+        {% elif s == 'Day' %}
+          mdi:white-balance-sunny
+        {% elif s == 'Bedtime' %}
+          mdi:sleep
+        {% elif s == 'Night' %}
+          mdi:weather-night
+        {% else %}
+          mdi:file-question
+        {% endif %}
+
+  - binary_sensor:
+      name: "Home Sleep"
+      unique_id: c88c_home_sleep
+      state: >
+        {{ states('input_select.home_scene') in ('Bedtime', 'Night') }}
+      icon: >
+        {{ state_attr('sensor.home_scene', 'icon') }}
+
+automation:
+  - alias: "Home: Morning"
+    id: home_scene_morning
+    mode: single
+    triggers:
+    - trigger: state
+      entity_id: sensor.home_scene
+      to: Morning
+      not_from: unavailable
+    conditions: []
+    actions:
+      - action: switch.turn_on
+        target:
+          entity_id:
+            - switch.front_hall_panel_screen
+            - switch.downstairs_calendar_screen
+
+  - alias: "Home: Day"
+    id: home_scene_day
+    mode: single
+    triggers:
+    - trigger: state
+      entity_id: sensor.home_scene
+      to: Day
+      not_from: unavailable
+    conditions: []
+    actions: []
+
+  - alias: "Home: Bedtime"
+    id: home_scene_bedtime
+    mode: single
+    triggers:
+    - trigger: state
+      entity_id: sensor.home_scene
+      to: Bedtime
+      not_from: unavailable
+    conditions: []
+    actions: []
+
+  - alias: "Home: Night"
+    id: home_scene_night
+    mode: single
+    triggers:
+    - trigger: state
+      entity_id: sensor.home_scene
+      to: Night
+      not_from: unavailable
+    conditions: []
+    actions:
+      - action: switch.turn_off
+        target:
+          entity_id:
+            - switch.front_hall_panel_screen
+            - switch.downstairs_calendar_screen

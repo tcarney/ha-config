@@ -1,0 +1,70 @@
+# Pop-up
+#
+# The Bubble Card pop-up chrome, so a pop-up is three lines of intent instead
+# of twenty of settings. Only the hash, the title and the contents change
+# between most pop-ups.
+#
+#   - type: custom:streamline-card
+#     template: popup
+#     variables:
+#       hash: "#alarm-perimeter"
+#       name: Doors and Windows
+#       cards:
+#         - type: custom:auto-entities
+#           ...
+#
+# Required variables:
+#   hash    the fragment that opens it, e.g. "#alarm-perimeter".
+#   name    title shown in the pop-up header
+#   cards   list of cards making up the body
+#
+# Optional:
+#   width       desktop width; phones are full width regardless
+#   popup_mode  "default", or "centered" to sit in the middle of the screen
+#   trigger     conditions that open the pop-up on their own, as the doorbell
+#               does when the button is pressed
+#
+# `cards` is a list rather than a scalar, which streamline handles: a variable
+# whose value is an object replaces the quoted "[[cards]]" token wholesale,
+# so the array survives. Scalars are substituted inside the quotes instead,
+# which is why every scalar token below has to stay quoted.
+#
+# `button_type: name` because these pop-ups carry no entity. `state` would
+# only change the defaults for showing state and attributes, both of which
+# need an entity to render anything.
+#
+# `trigger` defaults to null rather than an empty list. Bubble Card reads it
+# as `if (!trigger) return null`, so null takes exactly the same path as the
+# key being absent; an empty list is truthy and returns early instead, which
+# would skip the older trigger_entity/trigger_state handling below it.
+
+default:
+  width: 540px
+  popup_mode: default
+  trigger: null
+
+card:
+  type: custom:bubble-card
+  card_type: pop-up
+  hash: "[[hash]]"
+  name: "[[name]]"
+  button_type: name
+  width_desktop: "[[width]]"
+  popup_mode: "[[popup_mode]]"
+  backdrop_blur: "5"
+  auto_close: "30000"
+  popup_style: classic
+  buttons_position: left
+  show_header: true
+  show_name: true
+  show_icon: false
+  button_action:
+    tap_action:
+      action: none
+  tap_action:
+    action: none
+  sub_button:
+    main: []
+    bottom: []
+  trigger: "[[trigger]]"
+  cards: "[[cards]]"

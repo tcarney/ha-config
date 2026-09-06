@@ -1,0 +1,115 @@
+# Group State Counter
+# Place in: <config>/blueprints/template/status_sensors/group_state_counter.yaml
+#
+# Counts how many members of a group are in a given state, and exposes which
+# ones in a `details` attribute alongside the timestamp each entered it.
+#
+# The count alone makes a compact dashboard badge ("2 Open", "1 Playing")
+# and the attribute is what lets a pop-up behind that badge list the offenders
+# without duplicating the filter. auto-entities can read it directly.
+#
+# Sources are expanded through group membership, so pass one group rather than
+# its members. Expansion stops at anything that is not a group, so single
+# entities can be mixed in.
+#
+# Several states can match at once, which covers groups spanning domains that
+# name the same condition differently (locks are `unlocked` where covers are
+# `open`).
+#
+# This counts a fixed set of entities. Counting everything in a domain is
+# deliberately not supported: a template that iterates all states re-renders
+# on every state change in the system, which is a poor trade for a badge.
+
+blueprint:
+  name: "Group State Counter"
+  description: >
+    Count the members of a group that are in a given state, with a `details`
+    attribute listing which ones and when they got there. Useful for a badge
+    that summarises a group and a pop-up that expands it.
+  domain: template
+  input:
+    name:
+      name: "Name"
+      selector:
+        text:
+    unique_id:
+      name: "Unique ID"
+      description: >
+        Stable ID for the entity registry. Changing it creates a new entity
+        and abandons the old one, so set it once and leave it alone.
+      selector:
+        text:
+    sources:
+      name: "Sources"
+      description: >
+        Group or groups to count. Members are found by expanding these, so a
+        single group entity is usually all that is needed.
+      selector:
+        entity:
+          multiple: true
+    match_states:
+      name: "States That Count"
+      description: >
+        An entity is counted while it is in any of these states.
+      default:
+        - "on"
+      selector:
+        select:
+          multiple: true
+          custom_value: true
+          options:
+            - "on"
+            - "off"
+            - playing
+            - unlocked
+            - open
+            - home
+            - not_home
+    unit_of_measurement:
+      name: "Unit"
+      description: >
+        Shown after the count, so read it as a noun: "2 Open", "1 Playing".
+      default: ""
+      selector:
+        text:
+    icon_active:
+      name: "Icon When Counting"
+      description: Icon while at least one entity matches.
+      selector:
+        icon:
+    icon_idle:
+      name: "Icon When Zero"
+      description: Icon while nothing matches.
+      selector:
+        icon:
+
+variables:
+  sources: !input sources
+  match_states: !input match_states
+  icon_active: !input icon_active
+  icon_idle: !input icon_idle
+
+sensor:
+  - name: !input name
+    unique_id: !input unique_id
+    unit_of_measurement: !input unit_of_measurement
+
+    state: >
+      {{ expand(sources) | selectattr('state', 'in', match_states) | list | count }}
+
+    icon: >
+      {% set matched = expand(sources) | selectattr('state', 'in', match_states) | list %}
+      {{ icon_idle if matched | count == 0 else icon_active }}
+
+    attributes:
+      details: >
+        {% set ns = namespace(items=[]) %}
+        {% for s in expand(sources) | selectattr('state', 'in', match_states) %}
+          {% set ns.items = ns.items + [
+            {
+              "entity": s.entity_id,
+              "last_changed": s.last_changed.isoformat()
+            }
+          ] %}
+        {% endfor %}
+        {{ ns.items }}

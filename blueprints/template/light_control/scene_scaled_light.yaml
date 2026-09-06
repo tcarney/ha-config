@@ -1,0 +1,129 @@
+# Scene-Scaled Light
+# Place in: <config>/blueprints/template/light_control/scene_scaled_light.yaml
+#
+# Wraps a dimmable light and scales its brightness by a per-scene factor, so a
+# room can be capped at night without anything that drives the light knowing a
+# cap exists.
+#
+#   set_level  multiplies the requested brightness by the factor
+#   level      divides it back out, so callers still see a full 0-255 range
+#
+# Because the round trip is symmetric, a dimmer ramping 0-255 spans the capped
+# range in even steps rather than saturating partway up. Clamping instead of
+# scaling looks equivalent but is not: a controller that reads brightness back
+# sees its own writes ignored above the cap and the ramp stops moving.
+#
+# A factor of 0 keeps the light off in that scene, including via turn_on.
+#
+# This variant is brightness-only. For a light that also reports color
+# temperature, use scene_scaled_light_color_temp.yaml.
+
+blueprint:
+  name: "Scene-Scaled Light"
+  description: >
+    Wrap a dimmable light so its brightness is scaled by the current scene.
+    Set a factor per scene value: 1.0 is unrestricted, 0.5 halves the usable
+    range, 0.0 keeps the light off. Scenes you do not list are unrestricted.
+  domain: template
+  input:
+    name:
+      name: "Name"
+      description: Friendly name for the wrapper light.
+      selector:
+        text:
+    unique_id:
+      name: "Unique ID"
+      description: >
+        Stable ID for the entity registry. Changing it creates a new entity
+        and abandons the old one, so set it once and leave it alone.
+      selector:
+        text:
+    source_light:
+      name: "Source Light"
+      description: The light being wrapped. Control this wrapper, not the source.
+      selector:
+        entity:
+          domain: light
+    scene_entity:
+      name: "Scene Entity"
+      description: >
+        Entity whose state selects the factor, e.g. an input_select or a
+        template sensor holding the current home scene.
+      selector:
+        entity:
+    scene_factors:
+      name: "Scene Limits"
+      description: >
+        Map each scene state to a brightness factor between 0.0 and 1.0.
+        Example: {"Bedtime": 0.6, "Night": 0.4}
+      default: {}
+      selector:
+        object:
+
+variables:
+  source_light: !input source_light
+  scene_entity: !input scene_entity
+  scene_factors: !input scene_factors
+
+light:
+  - name: !input name
+    unique_id: !input unique_id
+
+    state: "{{ states(source_light) }}"
+
+    # Undo the scaling so callers see the full range they wrote.
+    level: >
+      {% set f = (scene_factors or {}).get(states(scene_entity), 1.0) | float(1.0) %}
+      {% set b = state_attr(source_light, 'brightness') %}
+      {{ 0 if not b or f <= 0 else [(b / f) | round | int, 255] | min }}
+
+    # Plain on: keep the previous brightness but never above the scene cap.
+    turn_on:
+      - variables:
+          source: !input source_light
+          scene: !input scene_entity
+          factors: !input scene_factors
+      - variables:
+          factor: "{{ (factors or {}).get(states(scene), 1.0) | float(1.0) }}"
+      - if:
+          - condition: template
+            value_template: "{{ factor | float(1.0) <= 0 }}"
+        then:
+          - action: light.turn_off
+            target:
+              entity_id: !input source_light
+        else:
+          - action: light.turn_on
+            target:
+              entity_id: !input source_light
+            data:
+              brightness: >
+                {% set prev = state_attr(source, 'brightness') | int(255) %}
+                {{ [prev, (factor | float(1.0) * 255) | round | int] | min }}
+
+    turn_off:
+      action: light.turn_off
+      target:
+        entity_id: !input source_light
+
+    set_level:
+      - variables:
+          scene: !input scene_entity
+          factors: !input scene_factors
+      - variables:
+          scaled: >
+            {% set f = (factors or {}).get(states(scene), 1.0) | float(1.0) %}
+            {{ (brightness * f) | round | int }}
+      - if:
+          - condition: template
+            value_template: "{{ scaled | int < 1 }}"
+        then:
+          - action: light.turn_off
+            target:
+              entity_id: !input source_light
+        else:
+          - action: light.turn_on
+            target:
+              entity_id: !input source_light
+            data:
+              brightness: "{{ scaled }}"

@@ -1,0 +1,156 @@
+# Weather detail panel
+#
+# Current conditions with a large animated icon, hourly forecast strip, and a
+# five-day outlook. The sub-button row shows conditions, apparent temperature,
+# and a sunrise/sunset countdown that switches to a UV warning above the
+# configured threshold.
+#
+# Self-contained: drop it in a view, a section, or a bubble-card pop-up.
+#
+#   - type: custom:streamline-card
+#     template: weather_detail
+#     variables:
+#       weather_entity: weather.your_weather
+#       conditions_entity: sensor.your_weather_conditions
+#       feels_like_entity: sensor.your_weather_apparent_temperature
+#       sun_event_entity: sensor.sun_status
+#
+# Required variables:
+#   weather_entity      weather entity driving the icon, temperature, forecasts
+#   conditions_entity   text summary for the first sub-button; this repo builds
+#                       one in `config/packages/status_sensors.yaml`
+#   feels_like_entity   apparent temperature for the second sub-button
+#   sun_event_entity    countdown to the next sunrise/sunset, falling back to a
+#                       UV warning when the index is high; this repo builds one
+#                       in `config/packages/status_sensors.yaml`
+#
+# Optional:
+#   icon_path      where the condition SVGs live; this repo ships a set under
+#                  `config/www/weather_icons/` (served from `/local/`)
+
+default:
+  icon_path: /local/weather_icons
+
+card:
+  type: grid
+  columns: 1
+  square: false
+  cards:
+    - type: custom:bubble-card
+      card_type: button
+      button_type: state
+      entity: "[[weather_entity]]"
+      show_icon: true
+      icon: none
+      show_name: false
+      show_state: false
+      show_attribute: true
+      attribute: temperature
+      scrolling_effect: true
+      modules:
+        - weather_forecast
+      weather_forecast:
+        type: hourly
+        max_days: 7
+        min_day_width: 50
+        hide_icon_background: true
+        card_layout: default
+        disable_dynamic_background: true
+      sub_button:
+        main: []
+        bottom:
+          - name: Conditions
+            entity: "[[conditions_entity]]"
+            show_icon: false
+            show_state: true
+            show_background: false
+            tap_action:
+              action: none
+          - name: Feels Like
+            entity: "[[feels_like_entity]]"
+            show_name: true
+            show_state: true
+            show_background: false
+            tap_action:
+              action: none
+          - entity: "[[sun_event_entity]]"
+            show_name: false
+            show_state: true
+            show_background: false
+            tap_action:
+              action: none
+      styles: >-
+        .bubble-icon-container {
+          margin-left: 40px !important;
+        }
+
+        .bubble-icon {
+          --mdc-icon-size: 100px !important;
+          background-size: cover;
+          background-image:
+            ${
+              (() => {
+                const condition = hass.states["[[weather_entity]]"].state;
+                const icon =
+                  (condition === "partlycloudy" &&
+                   hass.states["sun.sun"].state === "below_horizon")
+                    ? "[[icon_path]]/partly-cloudy-night.svg"
+                    : `[[icon_path]]/${condition}.svg`;
+                return `url("${icon}")`;
+              })()
+            }
+        }
+
+        .bubble-name-container {
+          line-height: 100px;
+          flex-direction: unset;
+        }
+
+        .bubble-state {
+          font-size: 42px;
+          font-weight: 680;
+        }
+
+        .bubble-button-card-container {
+          min-height: 250px !important;
+        }
+
+        .bubble-container.bc-weather-card
+        .bubble-sub-button-bottom-container {
+          bottom: 110px !important;
+        }
+
+        .bubble-sub-button-group {
+          gap: 4px !important;
+        }
+
+        .bubble-sub-button {
+          padding: 0;
+        }
+
+        .bubble-background {
+          background-color: var(--ha-card-background, var(--card-background-color, #1c1c1c)) !important;
+        }
+      tap_action:
+        action: none
+      button_action:
+        tap_action:
+          action: none
+        hold_action:
+          action: none
+    - type: custom:bubble-card
+      card_type: button
+      button_type: state
+      modules:
+        - weather_forecast
+      entity: "[[weather_entity]]"
+      weather_forecast:
+        type: daily
+        hide_icon_background: false
+        disable_dynamic_background: true
+        disable_animations: false
+        card_layout: weather_only_bg
+        max_days: 5
+      sub_button:
+        main: []
+        bottom: []

@@ -1,0 +1,248 @@
+# Area-based light groups
+light:
+  - platform: group
+    unique_id: area_family_room
+    name: "Area Family Room"
+    entities:
+      - light.family_room_main_lights_television
+      - light.family_room_main_lights_windows
+      - light.family_room_hall_light
+      - light.fireplace
+
+  - platform: group
+    unique_id: area_office
+    name: "Area Office"
+    entities:
+      - light.office_back_light
+      - light.office_floor_lamp
+      - light.office_desk_lamp
+
+  - platform: group
+    unique_id: area_patio
+    name: "Area Patio"
+    entities:
+      - light.patio_lights
+      - light.outdoor_string_lights
+
+  - platform: group
+    unique_id: area_living_room
+    name: "Area Living Room"
+    entities:
+      - light.living_room_plug
+
+  - platform: group
+    unique_id: area_master_bedroom
+    name: "Area Master Bedroom"
+    entities:
+      - light.tom_nightstand
+      - light.partner_nightstand
+      - light.master_bedroom_dresser_lamp
+
+  - platform: group
+    unique_id: area_sitting_room
+    name: "Area Sitting Room"
+    entities:
+      - light.bookshelf_lamp
+      - light.sitting_chair_lamp
+
+  - platform: group
+    unique_id: area_guest_bedroom
+    name: "Area Guest Bedroom"
+    entities:
+      - light.guest_bedroom_table_lamp
+      - light.guest_bedroom_floor_lamp
+
+  - platform: group
+    unique_id: area_kid_bedroom
+    name: "Area Kid Bedroom"
+    entities:
+      - light.seahorse_lamp
+      - light.kid_chair_lamp
+      - light.kid_bedroom_lights
+
+  - platform: group
+    unique_id: area_basement
+    name: "Area Basement"
+    entities:
+      - light.basement_ceiling_lights
+      - light.basement_back_room
+
+  - platform: group
+    unique_id: area_exterior_lights
+    name: "Area Exterior Lights"
+    entities:
+      - light.front_yard_lights
+      - light.shed_exterior_lights
+      - light.kasa_outdoor_plug_two
+
+# Sub-Area light groups
+  - platform: group
+    unique_id: kid_bedroom_lamps
+    name: "Kid Bedroom Lamps Group"
+    entities:
+      - light.seahorse_lamp
+      - light.kid_chair_lamp
+
+  - platform: group
+    unique_id: family_room_main_lights
+    name: "Family Room Main Lights Group"
+    entities:
+      - light.family_room_hall_light
+      - light.family_room_main_lights_television
+      - light.family_room_main_lights_windows
+
+  - platform: group
+    unique_id: office_main_lights
+    name: "Office Main Lights Group"
+    entities:
+      - light.office_floor_lamp
+      - light.office_back_light
+
+  - platform: group
+    unique_id: master_bedroom_nightstands
+    name: "Master Bedroom Nightstands Group"
+    entities:
+      - light.partner_nightstand
+      - light.tom_nightstand
+
+# Scene-scaled template lights
+#
+# Both are instances of the scene_scaled_light blueprints: the wrapper scales
+# brightness by a per-scene factor and undoes the scaling when reporting it,
+# so Pico remotes, dashboards and HomeKit all work in a plain 0-255 range and
+# are capped without knowing the cap exists.
+template:
+  - use_blueprint:
+      path: light_control/scene_scaled_light_color_temp.yaml
+      input:
+        name: "Kid Bedroom Lamps"
+        unique_id: kid_bedroom_lamps_template
+        source_light: light.kid_bedroom_lamps_group
+        scene_entity: input_select.home_scene
+        scene_factors:
+          Bedtime: 0.60
+          Night: 0.40
+
+  - use_blueprint:
+      path: light_control/scene_scaled_light.yaml
+      input:
+        name: "Kid Bedroom Ceiling Lights"
+        unique_id: kid_bedroom_lights_template
+        source_light: light.kid_bedroom_lights_source
+        scene_entity: input_select.home_scene
+        scene_factors:
+          Bedtime: 0.31
+          Night: 0.00
+
+# Light schedule state
+input_boolean:
+  exterior_light_schedule:
+    name: Exterior Light Schedule
+    icon: mdi:post-lamp
+
+automation:
+  - alias: "Lights: Family Room"
+    use_blueprint:
+      path: light_control/pico_remote.yaml
+      input:
+        pico: d76fdc9afaebfd416845afd07d793fdf
+        lights:
+          - light.family_room_main_lights_group
+
+  - alias: "Lights: Guest Bedroom"
+    use_blueprint:
+      path: light_control/pico_remote.yaml
+      input:
+        pico: 716d0608d70570ad9a05c46a94436fe4
+        lights:
+          - light.area_guest_bedroom
+
+  - alias: "Lights: Office"
+    use_blueprint:
+      path: light_control/pico_remote.yaml
+      input:
+        pico: aa9b5daa8688cc762977654ba3705c95
+        lights:
+          - light.office_main_lights_group
+          - light.office_desk_lamp
+
+  - alias: "Lights: Master Bedroom"
+    use_blueprint:
+      path: light_control/pico_remote.yaml
+      input:
+        pico: 08ffa8d930cfe56dac1503529791eee5
+        lights:
+          - light.master_bedroom_dresser_lamp
+          - light.master_bedroom_nightstands_group
+
+  - alias: "Lights: Kid Bedroom"
+    use_blueprint:
+      path: light_control/pico_remote.yaml
+      input:
+        pico: 41c1938393fb4bd9e011db9c18a6f91a
+        lights:
+          - light.kid_bedroom_lamps
+          - light.kid_bedroom_lights
+
+  - id: '1719585432102'
+    alias: 'Lights: Exterior Schedule'
+    description: ''
+    triggers:
+    - id: 'on'
+      trigger: sun
+      event: sunset
+      offset: -00:25:00
+    - id: 'off'
+      trigger: time
+      at: '22:15:00'
+    - id: light
+      trigger: state
+      to: 'on'
+      entity_id:
+      - light.driveway
+      - light.front_door
+      - light.shed_exterior_lights
+    conditions: []
+    actions:
+    - alias: If trigger is 'on'
+      if:
+      - condition: trigger
+        id:
+        - 'on'
+      then:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.exterior_light_schedule
+      - action: light.turn_on
+        target:
+          entity_id: light.area_exterior_lights
+    - alias: If trigger is 'off'
+      if:
+      - condition: trigger
+        id:
+        - 'off'
+      then:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.exterior_light_schedule
+      - action: light.turn_off
+        target:
+          entity_id: light.area_exterior_lights
+    - alias: If trigger is 'light'
+      if:
+      - condition: trigger
+        id:
+        - light
+      - condition: state
+        entity_id: input_boolean.exterior_light_schedule
+        state: 'off'
+      then:
+      - delay:
+          hours: 0
+          minutes: 10
+          seconds: 0
+          milliseconds: 0
+      - action: light.turn_off
+        target:
+          entity_id: light.area_exterior_lights
+    mode: restart

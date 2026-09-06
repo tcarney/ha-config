@@ -1,0 +1,1173 @@
+kiosk_mode:
+  mobile_settings:
+    hide_header: true
+  non_admin_settings:
+    kiosk: true
+    hide_settings: true
+    hide_dialog_header_action_items: true
+    hide_dialog_history_show_more: true
+    hide_dialog_logbook_show_more: true
+navbar-templates:
+  main_navbar:
+    routes:
+      - icon: mdi:star
+        url: /tablet-dashboard/home
+      - icon: mdi:calendar
+        url: /tablet-dashboard/calendar
+      - icon: mdi:cctv
+        url: /tablet-dashboard/cameras
+      - icon: mdi:home
+        tap_action:
+          action: open-popup
+        popup:
+          - url: /tablet-dashboard/outside
+            icon: mdi:fence
+            label: Outdoors
+          - url: /tablet-dashboard/floor-b
+            icon: mdi:home-floor-b
+            label: Basement
+          - url: /tablet-dashboard/floor-1
+            icon: mdi:home-floor-1
+            label: First Floor
+          - url: /tablet-dashboard/floor-2
+            icon: mdi:home-floor-2
+            label: Second Floor
+      - icon: mdi:microphone-message
+        icon_color: var(--blue-color)
+        hidden: |
+          [[[
+            try {
+              const id = localStorage.getItem('vs-satellite-entity');
+              return !id || !hass.states[id];
+            } catch (e) { return true; }
+          ]]]
+        tap_action:
+          action: custom-js-action
+          code: |
+            [[[
+              try {
+                const id = localStorage.getItem('vs-satellite-entity');
+                if (id && hass.states[id]) {
+                  hass.callService(
+                    'voice_satellite',
+                    'wake',
+                    {},
+                    { entity_id: id }
+                  );
+                }
+              } catch (e) {
+                console.error('voice_satellite.wake failed:', e);
+              }
+            ]]]
+    layout:
+      reflect_child_state: true
+    desktop:
+      position: bottom
+      show_labels: false
+    styles: |
+      .navbar-card{
+        background: rgba(var(--rgb-card-background-color),0.7);
+        backdrop-filter: blur(15px);
+        '-webkit-backdrop-filter': blur(15px) !important; !important;
+        border: none;
+      }
+      .desktop .route {
+        height: 40px;
+        width: 50px;
+      }
+      .button {
+        border-radius: 12px;
+      }
+      .navbar-card.desktop {
+        padding: 8px;
+      }
+streamline_templates: !include_dir_named streamline_templates
+views:
+  - type: sections
+    max_columns: 2
+    title: Home
+    path: home
+    icon: mdi:star
+    header: &header-card
+      layout: start
+      badges_position: bottom
+      badges_wrap: wrap
+      card:
+        type: custom:streamline-card
+        template: clock_header
+    badges:
+      - type: entity
+        show_name: true
+        show_state: true
+        show_icon: true
+        entity: person.tom
+        tap_action:
+          action: none
+      - type: entity
+        show_name: true
+        show_state: true
+        show_icon: true
+        entity: person.partner
+        tap_action:
+          action: none
+      - type: entity
+        show_name: true
+        show_state: false
+        entity: person.kid
+        tap_action:
+          action: none
+        show_entity_picture: false
+        icon: ""
+      - type: entity
+        show_name: false
+        show_state: true
+        show_icon: true
+        entity: sensor.active_alerts
+        tap_action:
+          action: navigate
+          navigation_path: "#alerts"
+        color: red
+        visibility:
+          - condition: numeric_state
+            entity: sensor.active_alerts
+            above: 0
+      - type: entity
+        show_name: true
+        show_state: true
+        show_icon: true
+        entity: vacuum.roborock_q5
+        visibility:
+          - condition: state
+            entity: vacuum.roborock_q5
+            state_not: docked
+        tap_action:
+          action: none
+      - type: entity
+        show_name: false
+        show_state: true
+        show_icon: true
+        entity: cover.node_22
+        tap_action:
+          action: navigate
+          navigation_path: "#alarm-locks"
+        visibility:
+          - condition: state
+            entity: cover.node_22
+            state_not: closed
+      - type: entity
+        show_name: true
+        show_state: true
+        show_icon: true
+        entity: sensor.washer_status
+        visibility:
+          - condition: state
+            entity: sensor.washer_status
+            state_not:
+              - "Off"
+              - Venting
+        tap_action:
+          action: none
+      - type: entity
+        show_name: true
+        show_state: true
+        show_icon: true
+        entity: sensor.dryer_status
+        visibility:
+          - condition: state
+            entity: sensor.dryer_status
+            state_not: "Off"
+        tap_action:
+          action: none
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            icon: mdi:calendar-today
+            heading: Today
+            heading_style: title
+          - type: custom:chore-calendar-card
+            entities:
+              - entity: calendar.daily_chores
+                exclude:
+                  - pending
+                  - completed
+                color: purple
+            hide_completed: true
+            hide_section_headers: false
+            hide_card_background: true
+            double_tap_action:
+              action: complete
+            tap_action:
+              action: details
+            allow_uncomplete: true
+            completed_period:
+              hours: 8
+            hide_add_button: true
+            hide_edit_button: true
+            card_mod:
+              style: |-
+                ha-card {
+                  padding: 0 16px !important;
+                }
+          - type: custom:week-planner-card
+            calendars:
+              - entity: calendar.tom_personal
+                color: var(--red-color)
+                icon: mdi:face-man
+              - entity: calendar.partner_calendar
+                color: var(--green-color)
+                icon: mdi:face-woman
+              - entity: calendar.family_calendar
+                color: var(--purple-color)
+                icon: mdi:human-male-female-child
+              - entity: calendar.kid_calendar
+                color: var(--blue-color)
+                icon: mdi:cat
+            days: 1
+            startingDay: today
+            startingDayOffset: 0
+            hideWeekend: false
+            noCardBackground: true
+            compact: false
+            locale: en
+            showLocation: false
+            hidePastEvents: true
+            hideDaysWithoutEvents: false
+            hideTodayWithoutEvents: false
+            combineSimilarEvents: true
+            showLegend: false
+            timeFormat: t
+            showDescription: false
+            showNavigation: false
+            grid_options:
+              columns: full
+            texts:
+              fullDay: All Day
+              noEvents: No events
+            title: Calendar
+            showTitle: true
+            dayFormat: " "
+            updateInterval: 300
+            filter: ^(Check In)$
+            card_mod:
+              style: |
+                .card-content {
+                  padding: 0 16px !important;
+                }
+                .events {
+                  margin: 0 !important;
+                }
+                .end-time { display: none; }
+                .past { opacity: 0.6; }
+                .none {
+                  display: flex;
+                  align-items: center;
+                  gap: 12px;
+                  padding: 10px;
+                  margin-bottom: 5px;
+                  background: var(--card-background-color, var(--ha-card-background, white));
+                  border-left: 5px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+                  border-radius: 0 5px 5px 0 !important;
+                  overflow: hidden;
+                  font-size: 14px;
+                  font-style: italic;
+                  color: var(--secondary-text-color);
+                  line-height: unset !important;
+                }
+                h1 {
+                  margin: 0;
+                  padding-top: 8px;
+                  padding-right: 0px;
+                  padding-bottom: 4px;
+                  padding-left: 0px;
+                  font-size: 11px;
+                  font-weight: 600;
+                  text-transform: uppercase;
+                  letter-spacing: 0.5px;
+                }
+      - type: grid
+        cards:
+          - type: vertical-stack
+            cards:
+              - type: heading
+                icon: mdi:home
+                heading_style: title
+                badges:
+                  - type: entity
+                    show_state: true
+                    show_icon: false
+                    entity: climate.econet_thermostat
+                    state_content:
+                      - current_temperature
+                      - current_humidity
+                  - type: entity
+                    show_state: true
+                    show_icon: true
+                    entity: sensor.home_scene
+                heading: Home
+              - type: custom:bubble-card
+                card_type: sub-buttons
+                sub_button:
+                  main: []
+                  bottom:
+                    - entity: sensor.light_areas_on
+                      show_state: true
+                      scrolling_effect: false
+                      tap_action:
+                        action: navigate
+                        navigation_path: "#home-lights"
+                    - entity: sensor.upstairs_fans_on
+                      show_state: true
+                      scrolling_effect: false
+                      tap_action:
+                        action: navigate
+                        navigation_path: "#home-fans"
+                      show_background: true
+                      state_background: false
+                    - entity: sensor.media_players
+                      show_state: true
+                      scrolling_effect: false
+                      tap_action:
+                        action: navigate
+                        navigation_path: "#home-media"
+                rows: 0.938
+                hide_main_background: true
+              - type: custom:bubble-card
+                card_type: climate
+                sub_button:
+                  main:
+                    - name: HVAC modes menu
+                      select_attribute: hvac_modes
+                      state_background: false
+                      show_arrow: true
+                      sub_button_type: select
+                  bottom: []
+                entity: climate.econet_thermostat
+                show_name: true
+                show_state: false
+                show_attribute: false
+                attribute: current_temperature
+                tap_action:
+                  action: none
+                hold_action:
+                  action: more-info
+                rows: 1
+            grid_options:
+              columns: full
+              rows: 3
+          - type: vertical-stack
+            cards:
+              - type: heading
+                icon: mdi:shield-home-outline
+                heading: Security
+                heading_style: title
+                badges:
+                  - type: entity
+                    show_state: true
+                    show_icon: true
+                    entity: binary_sensor.activity_home
+                    state_content: last_updated
+              - type: custom:bubble-card
+                card_type: sub-buttons
+                sub_button:
+                  main: []
+                  bottom:
+                    - entity: switch.front_doorbell_chime
+                      name: Doorbell
+                      show_name: true
+                      show_state: false
+                      scrolling_effect: false
+                      tap_action:
+                        action: navigate
+                        navigation_path: "#doorbell"
+                      show_background: true
+                      state_background: false
+                    - entity: sensor.locks_unlocked
+                      show_state: true
+                      scrolling_effect: false
+                      tap_action:
+                        action: navigate
+                        navigation_path: "#alarm-locks"
+                    - entity: sensor.open_alarm_perimeter
+                      show_state: true
+                      scrolling_effect: false
+                      tap_action:
+                        action: navigate
+                        navigation_path: "#alarm-perimeter"
+                rows: 0.938
+                hide_main_background: true
+              - type: tile
+                entity: alarm_control_panel.edge_alarm_panel
+                name: " "
+                hide_state: false
+                state_content: state
+                vertical: false
+                tap_action:
+                  action: none
+                hold_action:
+                  action: more-info
+                features:
+                  - type: alarm-modes
+                features_position: inline
+                card_mod:
+                  style:
+                    .: >
+                      {% set entry = states('timer.edge_entry_delay') %}
+
+                      {% set exit = states('timer.edge_exit_delay') %}
+
+                      {% if entry == 'active' %}
+                        {% set t = 'timer.edge_entry_delay' %}
+                        {% set color = 'var(--red-color, #f44336)' %}
+                      {% elif exit == 'active' %}
+                        {% set t = 'timer.edge_exit_delay' %}
+                        {% set color = 'var(--green-color, #4caf50)' %}
+                      {% else %}
+                        {% set t = none %}
+                      {% endif %}
+
+                      {% if t %}
+
+                      {% set duration = as_timedelta(state_attr(t,
+                      'duration')).total_seconds() | int %}
+
+                      {% set finishes = as_timestamp(state_attr(t,
+                      'finishes_at')) %}
+
+                      {% set elapsed = (duration - (finishes -
+                      now().timestamp())) | round(0, 'floor') %}
+
+                      ha-card {
+                        position: relative;
+                        overflow: hidden;
+                        isolation: isolate;
+                      }
+
+                      ha-card::before, ha-card::after {
+                        content: "";
+                        position: absolute;
+                        inset: 0;
+                        z-index: -1;
+                        pointer-events: none;
+                      }
+
+                      ha-card::before {
+                        background-color: {{ color }};
+                        opacity: 0.2;
+                      }
+
+                      ha-card::after {
+                        background-color: {{ color }};
+                        opacity: 0.5;
+                        transform-origin: left;
+                        animation: alarm-timer-drain {{ duration }}s linear -{{ elapsed }}s forwards;
+                      }
+
+                      @keyframes alarm-timer-drain {
+                        from { transform: scaleX(1); }
+                        to { transform: scaleX(0); }
+                      }
+
+                      {% endif %}
+                    ha-tile-info$: |
+                      .secondary {
+                        font-size: 14px !important;
+                        font-weight: 500 !important;
+                      }
+            grid_options:
+              columns: full
+              rows: 3
+      - type: grid
+        cards:
+          - type: custom:streamline-card
+            template: popup
+            variables:
+              hash: "#alarm-perimeter"
+              name: Doors and Windows
+              cards:
+                - type: custom:auto-entities
+                  card:
+                    type: grid
+                    columns: 2
+                    square: false
+                  card_param: cards
+                  filter:
+                    include:
+                      - options:
+                          type: tile
+                          state_content: last_changed
+                          tap_action:
+                            action: none
+                        or:
+                          - group: binary_sensor.activity_home_perimeter
+                          - group: binary_sensor.activity_garage_perimeter
+                          - group: binary_sensor.activity_shed_perimeter
+                          - group: binary_sensor.activity_yard_perimeter
+                  show_empty: true
+                  sort:
+                    method: last_changed
+                    reverse: true
+          - type: custom:streamline-card
+            template: popup
+            variables:
+              hash: "#alarm-locks"
+              name: Locks and Doors
+              cards:
+                - type: tile
+                  entity: cover.node_22
+                  vertical: false
+                  features_position: inline
+                  features:
+                    - type: cover-open-close
+                - type: custom:streamline-card
+                  template: lock_with_door
+                  variables:
+                    lock_entity: lock.front_door
+                    door_sensor: binary_sensor.front_door
+                    name: Front Door
+                - type: custom:streamline-card
+                  template: lock_with_door
+                  variables:
+                    lock_entity: lock.back_door
+                    door_sensor: binary_sensor.back_door
+                - type: custom:streamline-card
+                  template: lock_with_door
+                  variables:
+                    lock_entity: lock.garage_door
+                    door_sensor: binary_sensor.garage_door
+          - type: custom:streamline-card
+            template: popup
+            variables:
+              hash: "#home-lights"
+              name: Lights
+              cards:
+                - type: custom:auto-entities
+                  card:
+                    type: grid
+                    columns: 2
+                    square: false
+                  card_param: cards
+                  filter:
+                    include:
+                      - options:
+                          type: tile
+                          hide_state: true
+                          vertical: false
+                          color: amber
+                          tap_action:
+                            action: none
+                          hold_action:
+                            action: more-info
+                          double_tap_action:
+                            action: toggle
+                          icon_tap_action:
+                            action: none
+                        entity_id: light.area_*
+                        sort:
+                          method: name
+                  sort:
+                    method: state
+                    reverse: true
+          - type: custom:streamline-card
+            template: popup
+            variables:
+              hash: "#home-fans"
+              name: Fans
+              cards:
+                - type: custom:auto-entities
+                  card:
+                    type: vertical-stack
+                  card_param: cards
+                  filter:
+                    include:
+                      - options:
+                          type: tile
+                          name:
+                            type: area
+                          hide_state: true
+                          features:
+                            - type: fan-speed
+                          features_position: inline
+                        group: fan.upstairs_fans
+                      - group: fan.air_purifier_fans
+                        options:
+                          type: tile
+                          name:
+                            type: area
+                          hide_state: true
+                          features:
+                            - type: fan-preset-modes
+                              style: dropdown
+                          features_position: inline
+                    exclude: []
+          - type: custom:streamline-card
+            template: popup
+            variables:
+              hash: "#home-media"
+              name: Media Players
+              cards:
+                - type: custom:yet-another-media-player
+                  entities:
+                    - entity_id: media_player.family_room_tv
+                    - entity_id: media_player.basement_tv
+                    - entity_id: media_player.kitchen_homepod
+                    - entity_id: media_player.living_room
+                    - entity_id: media_player.office_homepod
+                    - entity_id: media_player.kid_yoto
+                  disable_mass_queue: false
+                  show_chip_row: always
+                  match_theme: true
+                  alternate_progress_bar: false
+                  display_timestamps: true
+                  control_layout: modern
+                  adaptive_controls: false
+                  hide_active_entity_label: false
+                  adaptive_text_targets:
+                    - details
+                  details_alignment: center
+                  volume_mode: hidden
+                  hide_menu_player: false
+                  extend_artwork: false
+                  blurred_artwork: false
+                  hide_collapsed_artwork: false
+                  artwork_position: center center
+                  actions: []
+                  always_show_lyrics: false
+                  collapse_on_idle: true
+                  always_collapsed: false
+                  card_mod:
+                    style: |
+                      .more-info-menu,
+                      button[title="Shuffle"],
+                      button[title="Repeat"],
+                      button[title="Search"] {
+                        display: none !important;
+                      }
+          - type: custom:streamline-card
+            template: popup
+            variables:
+              hash: "#alerts"
+              name: Active Alerts
+              cards:
+                - type: custom:auto-entities
+                  card:
+                    type: vertical-stack
+                  card_param: cards
+                  filter:
+                    include:
+                      - options:
+                          type: tile
+                          entity: this.entity_id
+                          hide_state: true
+                        label: alerts
+                        or:
+                          - domain: binary_sensor
+                          - domain: input_boolean
+                        state: "on"
+                      - options:
+                          type: tile
+                          entity: this.entity_id
+                        label: alerts
+                        domain: sensor
+                        state: < 20
+      - type: grid
+        cards: &footer-card
+          - type: custom:streamline-card
+            template: popup
+            variables:
+              hash: "#weather-details"
+              name: Weather Details
+              cards:
+                - type: custom:streamline-card
+                  template: weather_detail
+                  variables:
+                    weather_entity: weather.home_weather
+                    conditions_entity: sensor.weather_conditions
+                    feels_like_entity: sensor.home_weather_feels_like_temperature
+                    sun_event_entity: sensor.sun_status
+          - type: custom:streamline-card
+            template: popup
+            variables:
+              hash: "#doorbell"
+              name: Doorbell
+              trigger:
+                - condition: state
+                  entity: binary_sensor.front_doorbell_button
+                  state: "on"
+              cards:
+                - type: custom:scrypted-nvr-camera
+                  id: 54
+          - type: custom:navbar-card
+            template: main_navbar
+  - type: sections
+    max_columns: 2
+    title: Calendar
+    path: calendar
+    icon: mdi:calendar
+    header: *header-card
+    sections:
+      - type: grid
+        cards:
+          - type: custom:week-planner-card
+            calendars:
+              - entity: calendar.tom_personal
+                color: var(--red-color)
+                name: Tom
+              - entity: calendar.partner_calendar
+                color: var(--green-color)
+                name: Partner
+              - entity: calendar.family_calendar
+                color: var(--purple-color)
+                name: Family
+              - entity: calendar.kid_calendar
+                color: var(--blue-color)
+                name: Kid
+              - entity: calendar.trash_collection
+                color: "#7c7c7c"
+                icon: mdi:delete-empty
+                name: Trash
+                hideInLegend: true
+            days: 5
+            startingDay: today
+            startingDayOffset: 0
+            hideWeekend: false
+            noCardBackground: true
+            compact: false
+            locale: en
+            showLocation: false
+            hidePastEvents: false
+            hideDaysWithoutEvents: false
+            hideTodayWithoutEvents: false
+            combineSimilarEvents: true
+            showLegend: true
+            legendToggle: false
+            timeFormat: t
+            showDescription: false
+            showNavigation: false
+            grid_options:
+              columns: full
+            texts:
+              fullDay: All Day
+              noEvents: Nothing
+            showTitle: true
+            columns:
+              extraLarge: 5
+              large: 5
+              medium: 5
+              small: 5
+              extraSmall: 1
+            weather:
+              entity: weather.home_weather
+              showCondition: true
+              showTemperature: true
+              showLowTemperature: false
+            filter: ^(Check In)$
+            card_mod:
+              style: |
+                .events {
+                  margin: 0 !important;
+                }
+                .end-time { display: none; }
+                .past { opacity: 0.6; }
+                .card-content .container .header {
+                  order: 999;
+                  grid-column: 1 / -1;
+                  margin-top: auto;  /* pushes to bottom of available grid space */
+                }
+        column_span: 3
+      - type: grid
+        cards: *footer-card
+  - type: sections
+    max_columns: 2
+    title: Cameras
+    path: cameras
+    icon: mdi:cctv
+    header: *header-card
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            icon: mdi:cctv
+            heading_style: title
+            badges: []
+            heading: Cameras
+            tap_action:
+              action: navigate
+              navigation_path: "#camera-events"
+          - type: custom:scrypted-nvr-camera
+            id: 33
+          - type: custom:scrypted-nvr-camera
+            id: 32
+        column_span: 2
+      - type: grid
+        cards:
+          - type: custom:streamline-card
+            template: popup
+            variables:
+              hash: "#camera-events"
+              name: Events
+              cards:
+                - type: custom:scrypted-nvr-events-carousel
+                  click: none
+                  count: 8
+                  cols: 4
+                  hiddenDetections:
+                    - Motion
+                    - Vehicle
+      - type: grid
+        cards: *footer-card
+  - type: sections
+    max_columns: 2
+    title: First Floor
+    path: floor-1
+    icon: mdi:home-floor-1
+    header: *header-card
+    sections:
+      - type: grid
+        cards:
+          - type: custom:streamline-card
+            template: room_heading
+            variables:
+              room: Family Room
+              temp_sensor: sensor.family_room_rts_air_temperature
+              humidity_sensor: sensor.family_room_rts_humidity
+          - type: tile
+            entity: light.family_room_main_lights_television
+            name: Television Lights
+            hide_state: true
+            vertical: false
+            features_position: bottom
+          - type: tile
+            entity: light.family_room_main_lights_windows
+            name: Window Lights
+            hide_state: true
+            vertical: false
+            features_position: bottom
+          - type: tile
+            entity: light.family_room_hall_light
+            name: Hall Light
+            hide_state: true
+            vertical: false
+            features_position: bottom
+          - type: tile
+            entity: light.fireplace
+            hide_state: true
+            vertical: false
+            features_position: bottom
+      - type: grid
+        cards:
+          - type: custom:streamline-card
+            template: room_heading
+            variables:
+              room: Living Room
+              temp_sensor: sensor.living_room_rts_air_temperature
+              humidity_sensor: sensor.living_room_rts_humidity
+          - type: tile
+            entity: vacuum.roborock_q5
+            hide_state: false
+            vertical: false
+            features:
+              - type: vacuum-commands
+                commands:
+                  - start_pause
+                  - stop
+                  - clean_spot
+            features_position: inline
+      - type: grid
+        cards: *footer-card
+  - type: sections
+    max_columns: 2
+    title: Second Floor
+    path: floor-2
+    icon: mdi:home-floor-2
+    header: *header-card
+    sections:
+      - type: grid
+        cards:
+          - type: custom:streamline-card
+            template: room_heading
+            variables:
+              room: Kid Bedroom
+              temp_sensor: sensor.kid_bedroom_rts_air_temperature
+              humidity_sensor: sensor.kid_bedroom_rts_humidity
+          - features:
+              - type: fan-speed
+            type: tile
+            entity: fan.kid_bedroom_ceiling_fan
+            features_position: inline
+            vertical: false
+            hide_state: true
+          - type: tile
+            entity: light.kid_bedroom_lights
+            features_position: inline
+            vertical: false
+            hide_state: true
+            name: Ceiling Lights
+            features:
+              - type: light-brightness
+          - type: tile
+            entity: light.seahorse_lamp
+            features_position: inline
+            vertical: false
+            hide_state: true
+          - type: tile
+            entity: light.kid_chair_lamp
+            features_position: inline
+            vertical: false
+            hide_state: true
+      - type: grid
+        cards:
+          - type: custom:streamline-card
+            template: room_heading
+            variables:
+              room: Master Bedroom
+              temp_sensor: sensor.master_bedroom_rts_air_temperature
+              humidity_sensor: sensor.master_bedroom_rts_humidity
+          - type: tile
+            entity: fan.master_bedroom_ceiling_fan
+            features_position: inline
+            vertical: false
+            hide_state: true
+            features:
+              - type: fan-speed
+          - type: tile
+            entity: light.master_bedroom_dresser_lamp
+            features_position: inline
+            vertical: false
+            hide_state: true
+            features:
+              - type: light-brightness
+          - type: tile
+            entity: light.partner_nightstand
+            features_position: inline
+            vertical: false
+            hide_state: true
+          - type: tile
+            entity: light.tom_nightstand
+            features_position: inline
+            vertical: false
+            hide_state: true
+          - type: custom:streamline-card
+            template: room_heading
+            variables:
+              room: Sitting Room
+              temp_sensor: sensor.sitting_room_rts_air_temperature
+              humidity_sensor: sensor.sitting_room_rts_humidity
+            grid_options:
+              rows: 1
+          - type: tile
+            entity: light.bookshelf_lamp
+            features_position: inline
+            vertical: false
+            hide_state: true
+          - type: tile
+            entity: light.sitting_chair_lamp
+            features_position: inline
+            vertical: false
+            hide_state: true
+      - type: grid
+        cards:
+          - type: custom:streamline-card
+            template: room_heading
+            variables:
+              room: Office
+              temp_sensor: sensor.office_rts_air_temperature
+              humidity_sensor: sensor.office_rts_humidity
+          - features:
+              - type: fan-speed
+            type: tile
+            entity: fan.office_ceiling_fan
+            features_position: inline
+            vertical: false
+            hide_state: true
+          - features:
+              - type: light-brightness
+            type: tile
+            entity: light.office_floor_lamp
+            features_position: inline
+            vertical: false
+            hide_state: true
+            name: Floor Lamp
+          - type: tile
+            entity: light.office_desk_lamp
+            name: Desk Lamp
+            hide_state: true
+            vertical: false
+            features_position: inline
+          - type: tile
+            entity: light.office_back_light
+            features_position: inline
+            vertical: false
+            hide_state: true
+            name: Back Light
+      - type: grid
+        cards:
+          - type: custom:streamline-card
+            template: room_heading
+            variables:
+              room: Guest Bedroom
+              temp_sensor: sensor.guest_bedroom_rts_air_temperature
+              humidity_sensor: sensor.guest_bedroom_rts_humidity
+          - features:
+              - type: fan-speed
+            type: tile
+            entity: fan.guest_bedroom_ceiling_fan
+            features_position: inline
+            vertical: false
+            hide_state: true
+          - type: tile
+            entity: light.guest_bedroom_table_lamp
+            features_position: inline
+            vertical: false
+            hide_state: true
+          - type: tile
+            entity: light.guest_bedroom_floor_lamp
+            features_position: inline
+            vertical: false
+            hide_state: true
+      - type: grid
+        cards: *footer-card
+  - type: sections
+    max_columns: 2
+    title: Basement
+    path: floor-b
+    icon: mdi:home-floor-b
+    header: *header-card
+    sections:
+      - type: grid
+        cards:
+          - type: custom:streamline-card
+            template: room_heading
+            variables:
+              room: Basement
+              temp_sensor: sensor.basement_rts_air_temperature
+              humidity_sensor: sensor.basement_rts_humidity
+          - type: tile
+            entity: light.basement_ceiling_lights
+            vertical: false
+            features_position: inline
+          - type: tile
+            entity: light.basement_back_room
+            vertical: false
+            features_position: inline
+          - type: tile
+            entity: sensor.basement_co2
+            name: " "
+            vertical: false
+            features_position: bottom
+          - type: tile
+            entity: sensor.basement_radon_us
+            name: " "
+            hide_state: false
+            vertical: false
+            features_position: bottom
+      - type: grid
+        cards:
+          - type: custom:streamline-card
+            template: room_heading
+            variables:
+              room: Laundry
+              temp_sensor: sensor.laundry_rts_air_temperature
+              humidity_sensor: sensor.laundry_rts_humidity
+          - type: tile
+            entity: sensor.dryer_status
+          - type: tile
+            entity: sensor.washer_status
+          - type: tile
+            entity: sensor.washer_smart_dispense
+          - type: tile
+            entity: counter.washer_cycles
+            features_position: bottom
+            vertical: false
+          - type: tile
+            entity: valve.water_valve
+          - type: tile
+            entity: sensor.node_9_water_temperature
+      - type: grid
+        cards: *footer-card
+  - type: sections
+    max_columns: 2
+    title: Outside
+    path: outside
+    icon: mdi:fence
+    header: *header-card
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            icon: ""
+            heading: Patio
+            heading_style: title
+            badges: []
+            card_mod:
+              style: |
+                ha-card {
+                  --ha-heading-card-title-line-height: 24px;
+                  --ha-heading-card-title-font-size: 20px;
+                  --ha-heading-card-title-font-weight: 400;
+                }
+          - type: tile
+            entity: fan.patio_ceiling_fan
+            features_position: inline
+            vertical: false
+            features:
+              - type: fan-speed
+          - type: tile
+            entity: light.patio_lights
+            features_position: inline
+            vertical: false
+            features:
+              - type: toggle
+      - type: grid
+        cards:
+          - type: heading
+            icon: ""
+            heading: Shed
+            heading_style: title
+            badges:
+              - type: entity
+                show_state: false
+                show_icon: true
+                entity: binary_sensor.activity_shed_motion
+                color: state
+                tap_action:
+                  action: more-info
+              - type: entity
+                show_state: true
+                show_icon: true
+                entity: sensor.shed_sensor_illuminance
+                tap_action:
+                  action: more-info
+              - type: entity
+                show_state: true
+                show_icon: true
+                entity: sensor.shed_sensor_air_temperature
+                tap_action:
+                  action: more-info
+              - type: entity
+                show_state: true
+                show_icon: true
+                entity: sensor.shed_sensor_humidity
+                tap_action:
+                  action: more-info
+            card_mod:
+              style: |
+                ha-card {
+                  --ha-heading-card-title-line-height: 24px;
+                  --ha-heading-card-title-font-size: 20px;
+                  --ha-heading-card-title-font-weight: 400;
+                }
+          - type: tile
+            entity: fan.shed_fan
+            vertical: false
+            features:
+              - type: toggle
+            features_position: inline
+          - type: tile
+            entity: light.shed_lights
+            vertical: false
+            features:
+              - type: toggle
+            features_position: inline
+      - type: grid
+        cards: *footer-card

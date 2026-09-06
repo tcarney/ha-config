@@ -1,0 +1,113 @@
+blueprint:
+  name: Fan Speed by Temperature
+  description: >
+    Adjusts a ceiling fan's speed based on the difference between a room
+    temperature sensor and a climate entity's cooling setpoint. When the
+    room is at or below the setpoint, the fan runs at its lowest speed.
+    As the room warms above the setpoint, speed scales linearly up to a
+    configurable maximum. Re-evaluates every 30 minutes. If the fan is
+    off, the automation does nothing (allowing local disable by turning
+    the fan off).
+  domain: automation
+  input:
+    fan_entity:
+      name: Ceiling Fan
+      description: The fan entity to control.
+      selector:
+        entity:
+          domain: fan
+    room_temp_sensor:
+      name: Room Temperature Sensor
+      description: Temperature sensor in the room with the fan.
+      selector:
+        entity:
+          domain: sensor
+          device_class: temperature
+    climate_entity:
+      name: Climate Entity
+      description: >
+        Climate entity whose cooling setpoint is used as the reference
+        temperature. Uses target_temp_high (heat_cool mode) if set,
+        otherwise the single target temperature.
+      selector:
+        entity:
+          domain: climate
+    max_speed:
+      name: Maximum Fan Speed (%)
+      description: >
+        Maximum percentage the fan can be set to. Supports templates for
+        conditional limits (e.g., "{{ 67 if is_state('binary_sensor.sleep_mode', 'on') else 100 }}").
+      default: "100"
+      selector:
+        text: {}
+    reference_temp_offset:
+      name: Reference Temperature Offset
+      description: >
+        Degrees above the climate setpoint before the fan begins ramping
+        beyond its lowest speed. The fan holds at minimum speed until the
+        room exceeds setpoint + offset.
+      default: 0
+      selector:
+        number:
+          min: -10
+          max: 10
+          step: 1
+          unit_of_measurement: "°"
+          mode: slider
+    degrees_to_max:
+      name: Degrees Above Setpoint for Max Speed
+      description: >
+        How many degrees above the climate setpoint corresponds to
+        maximum fan speed.
+      default: 6
+      selector:
+        number:
+          min: 1
+          max: 20
+          step: 1
+          unit_of_measurement: "°"
+          mode: slider
+
+mode: restart
+
+variables:
+  fan_entity: !input fan_entity
+  room_temp_sensor: !input room_temp_sensor
+  climate_entity: !input climate_entity
+  max_speed_template: !input max_speed
+  degrees_to_max: !input degrees_to_max
+  reference_temp_offset: !input reference_temp_offset
+  pct_step: "{{ state_attr(fan_entity, 'percentage_step') | float(25) }}"
+  max_speed: "{{ max_speed_template | int(100) }}"
+  num_steps: "{{ (100 / pct_step) | round(0) | int }}"
+  room_temp: "{{ states(room_temp_sensor) | float(0) }}"
+  ref_temp: "{{ state_attr(climate_entity, 'target_temp_high') | float(state_attr(climate_entity, 'temperature') | float(0)) }}"
+  temp_diff: "{{ [room_temp - ref_temp - reference_temp_offset, 0] | max }}"
+  ramp_range: "{{ [degrees_to_max - reference_temp_offset, 1] | max }}"
+  target_step: >
+    {% if temp_diff >= ramp_range %}
+      {{ num_steps }}
+    {% else %}
+      {{ [[(1 + (temp_diff / ramp_range) * (num_steps - 2)) | round(0) | int, 1] | max, num_steps - 1] | min }}
+    {% endif %}
+  target_pct: "{{ [(target_step * pct_step) | round(0) | int, max_speed] | min }}"
+
+triggers:
+  - trigger: time_pattern
+    minutes: "/30"
+
+conditions:
+  - condition: state
+    entity_id: !input fan_entity
+    state: "on"
+  - condition: template
+    value_template: >
+      {{ states(room_temp_sensor) not in ['unknown', 'unavailable']
+         and ref_temp > 0 }}
+
+actions:
+  - action: fan.set_percentage
+    target:
+      entity_id: !input fan_entity
+    data:
+      percentage: "{{ target_pct }}"

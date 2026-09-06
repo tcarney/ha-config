@@ -1,0 +1,176 @@
+# Interval Chore/Task Tracker — Template Blueprint
+# Place in: <config>/blueprints/template/chore_tracker/interval_task.yaml
+#
+# Creates a sensor that tracks whether an interval-based task has been
+# completed, using an entity's state timestamp as the completion signal.
+# Supported trigger entities: NFC tag, input_button, or input_datetime.
+# The next due time is calculated from the last completion + interval.
+#
+# Sensor states:
+#   completed  — last scan is within the interval
+#   due        — interval has elapsed since last scan
+#   overdue    — interval + grace period has elapsed since last scan
+#
+# Attributes exposed:
+#   last_completed, next_due
+#
+# Status: deprecated here, but complete and self-contained.
+#
+# This predates my chore_calendar integration
+# (https://github.com/tcarney/ha-chore-calendar), which now handles chore
+# tracking in this config.
+
+blueprint:
+  name: "Interval Task Tracker"
+  description: >
+    Track a recurring interval-based task. The sensor computes whether
+    the task is completed, due, or overdue based on a trigger entity's
+    timestamp and a configurable interval. Supports NFC tags, input
+    buttons, or input datetimes as completion triggers.
+  domain: template
+  input:
+    task_id:
+      name: "Task ID"
+      description: >
+        Unique identifier for this task instance. Can be any string.
+        Must be unique across all task tracker instances.
+      selector:
+        text:
+
+    tag_entity:
+      name: "Completion Trigger"
+      description: >
+        The entity whose state holds the last-completed timestamp.
+        Supported types: NFC tag (scan to complete), input_button
+        (press from dashboard), or input_datetime (set by automation).
+      selector:
+        entity:
+          filter:
+            - domain: tag
+            - domain: input_button
+            - domain: input_datetime
+
+    task_name:
+      name: "Task Name (optional)"
+      description: >
+        Friendly name for this task. Leave blank to use the entity's
+        friendly name instead.
+      default: ""
+      selector:
+        text:
+
+    interval:
+      name: "Interval"
+      description: >
+        How often this task should be performed. For example, every
+        6 months for a water filter would be 180 days.
+      selector:
+        duration:
+          enable_day: true
+          enable_second: false
+
+    grace_period:
+      name: "Grace Period"
+      description: >
+        How long after the interval elapses before the task is
+        considered 'overdue' rather than just 'due'.
+      default:
+        days: 1
+        hours: 0
+        minutes: 0
+      selector:
+        duration:
+          enable_day: true
+          enable_second: false
+
+# ─── Trigger: re-evaluate every minute and when the tag is scanned ───
+
+triggers:
+  - trigger: time_pattern
+    minutes: "/1"
+  - trigger: state
+    entity_id: !input tag_entity
+
+# ─── Expose inputs as variables for use in Jinja templates ───
+
+variables:
+  var_tag_entity: !input tag_entity
+  var_task_name: !input task_name
+  var_interval: !input interval
+  var_grace_period: !input grace_period
+  interval_mins: >-
+    {{ (var_interval.days | default(0) | int) * 1440
+     + (var_interval.hours | default(0) | int) * 60
+     + (var_interval.minutes | default(0) | int) }}
+  grace_period_mins: >-
+    {{ (var_grace_period.days | default(0) | int) * 1440
+     + (var_grace_period.hours | default(0) | int) * 60
+     + (var_grace_period.minutes | default(0) | int) }}
+  # ─── Compute status once so state, icon, and attributes stay in sync ───
+  current_status: >-
+    {## ── Read tag state ── ##}
+    {% set last_scan_str = states(var_tag_entity) %}
+
+    {## ── If never scanned, treat as overdue ── ##}
+    {% if last_scan_str in ['unknown', 'unavailable', ''] %}
+      overdue
+    {% else %}
+      {% set last_scan = as_datetime(last_scan_str) %}
+      {% set due_at = last_scan + timedelta(minutes=interval_mins | int) %}
+      {% set overdue_at = due_at + timedelta(minutes=grace_period_mins | int) %}
+
+      {## ── Compute status ── ##}
+      {% if now() >= overdue_at %}
+        overdue
+      {% elif now() >= due_at %}
+        due
+      {% else %}
+        completed
+      {% endif %}
+    {% endif %}
+
+sensor:
+  - unique_id: !input task_id
+
+    name: >-
+      {% if var_task_name | default('') | length > 0 %}
+        {{ var_task_name }}
+      {% else %}
+        {% set friendly = state_attr(var_tag_entity, 'friendly_name') | default('') %}
+        {% if friendly | length > 0 %}
+          {{ friendly }}
+        {% else %}
+          {{ var_tag_entity.split('.', 1)[1] | default(var_tag_entity) | replace('_', ' ') | title }}
+        {% endif %}
+      {% endif %}
+
+    icon: >-
+      {% if current_status == 'completed' %}
+        mdi:check-circle
+      {% elif current_status == 'overdue' %}
+        mdi:alert-circle
+      {% else %}
+        mdi:clock-alert
+      {% endif %}
+
+    state: "{{ current_status }}"
+
+    attributes:
+      trigger_entity: "{{ var_tag_entity }}"
+
+      last_completed: >-
+        {% set last_scan_str = states(var_tag_entity) %}
+        {% if last_scan_str in ['unknown', 'unavailable', ''] %}
+          never
+        {% else %}
+          {{ as_datetime(last_scan_str).isoformat() }}
+        {% endif %}
+
+      next_due: >-
+        {% set last_scan_str = states(var_tag_entity) %}
+        {% if last_scan_str in ['unknown', 'unavailable', ''] %}
+          now
+        {% else %}
+          {% set last_scan = as_datetime(last_scan_str) %}
+          {{ (last_scan + timedelta(minutes=interval_mins | int)).isoformat() }}
+        {% endif %}

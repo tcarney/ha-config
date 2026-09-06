@@ -1,0 +1,51 @@
+# Room heading
+#
+# Section heading for a room, with temperature and humidity badges and the
+# title type scaled down so it sits closer to the cards beneath it.
+#
+#   - type: custom:streamline-card
+#     template: room_heading
+#     variables:
+#       room: Family Room
+#       temp_sensor: sensor.family_room_temperature
+#       humidity_sensor: sensor.family_room_humidity
+#
+# Required variables:
+#   room              heading text
+#   temp_sensor       temperature badge
+#   humidity_sensor   humidity badge
+#
+# Optional:
+#   icon   leading icon; empty by default, since the badges carry the meaning
+#
+# Needs card-mod. Headings whose badges are not a temperature/humidity pair
+# are left as plain heading cards rather than bent to fit this.
+
+default:
+  icon: ""
+
+card:
+  type: heading
+  icon: "[[icon]]"
+  heading: "[[room]]"
+  heading_style: title
+  badges:
+    - type: entity
+      show_state: true
+      show_icon: true
+      entity: "[[temp_sensor]]"
+      tap_action:
+        action: more-info
+    - type: entity
+      show_state: true
+      show_icon: true
+      entity: "[[humidity_sensor]]"
+      tap_action:
+        action: more-info
+  card_mod:
+    style: |
+      ha-card {
+        --ha-heading-card-title-line-height: 24px;
+        --ha-heading-card-title-font-size: 20px;
+        --ha-heading-card-title-font-weight: 400;
+      }

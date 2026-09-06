@@ -1,0 +1,167 @@
+## Note: to reset devices find/replace 'c88c_' to generate new unique_id
+## Binary Sensors Groups define perimeter (open/close) and motion for separate areas
+binary_sensor:
+  - platform: group
+    name: "Activity Home Perimeter"
+    unique_id: c88c_activity_home_perimeter
+    device_class: opening
+    entities:
+      - binary_sensor.back_door
+      - binary_sensor.bathroom_window
+      - binary_sensor.front_door
+      - binary_sensor.office_window
+      - binary_sensor.patio_door
+
+  - platform: group
+    name: "Activity Home Motion"
+    unique_id: c88c_activity_home_motion
+    device_class: motion
+    entities:
+      - binary_sensor.family_room_motion
+      - binary_sensor.upstairs_hall_motion
+      - binary_sensor.front_hall_motion
+      - binary_sensor.basement_motion
+
+  - platform: group
+    name: "Activity Garage Perimeter"
+    unique_id: c88c_activity_garage_perimeter
+    device_class: opening
+    entities:
+      - binary_sensor.garage_door
+      - binary_sensor.overhead_door
+
+  - platform: group
+    name: "Activity Garage Motion"
+    unique_id: c88c_activity_garage_motion
+    device_class: motion
+    entities:
+      - binary_sensor.garage_motion
+
+  - platform: group
+    name: "Activity Shed Perimeter"
+    unique_id: c88c_activity_shed_perimeter
+    device_class: opening
+    entities:
+      - binary_sensor.shed_door
+
+  - platform: group
+    name: "Activity Shed Motion"
+    unique_id: c88c_activity_shed_motion
+    device_class: motion
+    entities:
+      - binary_sensor.shed_sensor_sensor_state_motion
+
+  - platform: group
+    name: "Activity Yard Perimeter"
+    unique_id: c88c_activity_yard_perimeter
+    device_class: opening
+    entities:
+      - binary_sensor.main_gate
+      - binary_sensor.side_gate
+
+  - platform: group
+    name: "Activity Yard Motion"
+    unique_id: c88c_activity_yard_motion
+    device_class: motion
+    entities:
+      - binary_sensor.mailbox
+      - binary_sensor.front_doorbell_button
+      - binary_sensor.front_door_camera_motion
+
+  # combine home and garage for monitored security zones
+  - platform: group
+    name: "Activity Alarm Perimeter"
+    unique_id: c88c_activity_alarm_perimeter
+    device_class: opening
+    entities:
+      - binary_sensor.activity_home_perimeter
+      - binary_sensor.activity_garage_perimeter
+
+  - platform: group
+    name: "Activity Alarm Motion"
+    unique_id: c88c_activity_alarm_motion
+    device_class: motion
+    entities:
+      - binary_sensor.activity_home_motion
+      - binary_sensor.activity_garage_motion
+
+  # combine shed and yard for exterior zone
+  - platform: group
+    name: "Activity Exterior Perimeter"
+    unique_id: c88c_activity_exterior_perimeter
+    device_class: opening
+    entities:
+      - binary_sensor.activity_shed_perimeter
+      - binary_sensor.activity_yard_perimeter
+
+  - platform: group
+    name: "Activity Exterior Motion"
+    unique_id: c88c_activity_exterior_motion
+    device_class: motion
+    entities:
+      - binary_sensor.activity_shed_motion
+      - binary_sensor.activity_yard_motion
+
+
+## Zone activity sensors
+#
+#  Each is an instance of the zone_activity template blueprint: perimeter and
+#  motion for one area combined into a sensor that stays on for a while after
+#  the last event, so the zone reads as active rather than as a stream of
+#  individual triggers.
+template:
+  - use_blueprint:
+      path: activity_sensors/zone_activity.yaml
+      input:
+        name: "Activity Home"
+        unique_id: c88c_activity_home
+        sources:
+          - binary_sensor.activity_home_perimeter
+          - binary_sensor.activity_home_motion
+        idle_timeout:
+          hours: 0
+          minutes: 30
+          seconds: 0
+        device_class: motion
+
+  - use_blueprint:
+      path: activity_sensors/zone_activity.yaml
+      input:
+        name: "Activity Garage"
+        unique_id: c88c_activity_garage
+        sources:
+          - binary_sensor.activity_garage_perimeter
+          - binary_sensor.activity_garage_motion
+        idle_timeout:
+          hours: 0
+          minutes: 30
+          seconds: 0
+        device_class: motion
+
+  - use_blueprint:
+      path: activity_sensors/zone_activity.yaml
+      input:
+        name: "Activity Shed"
+        unique_id: c88c_activity_shed
+        sources:
+          - binary_sensor.activity_shed_perimeter
+          - binary_sensor.activity_shed_motion
+        idle_timeout:
+          hours: 0
+          minutes: 10
+          seconds: 0
+        device_class: motion
+
+  - use_blueprint:
+      path: activity_sensors/zone_activity.yaml
+      input:
+        name: "Activity Yard"
+        unique_id: c88c_activity_yard
+        sources:
+          - binary_sensor.activity_yard_perimeter
+          - binary_sensor.activity_yard_motion
+        idle_timeout:
+          hours: 0
+          minutes: 10
+          seconds: 0
+        device_class: motion

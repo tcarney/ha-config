@@ -1,0 +1,305 @@
+kiosk_mode:
+  non_admin_settings:
+    kiosk: true
+    hide_settings: true
+    hide_dialog_header_action_items: true
+    hide_dialog_history_show_more: true
+    hide_dialog_logbook_show_more: true
+navbar-templates:
+  main_navbar:
+    routes:
+      - icon: mdi:star
+        url: /dashboard-calendar/home
+      - icon: mdi:calendar
+        url: /dashboard-calendar/week
+    layout:
+      reflect_child_state: true
+      auto_padding:
+        enabled: true
+    desktop:
+      position: bottom
+      show_labels: false
+    styles: |
+      .navbar-card{
+        background: rgba(var(--rgb-card-background-color),0.7);
+        backdrop-filter: blur(15px);
+        '-webkit-backdrop-filter': blur(15px) !important; !important;
+        border: none;
+      }
+      .desktop .route {
+        height: 40px;
+        width: 50px;
+      }
+      .button {
+        border-radius: 12px;
+      }
+      .navbar-card.desktop {
+        padding: 8px;
+      }
+streamline_templates: !include_dir_named streamline_templates
+views:
+  - type: sections
+    max_columns: 2
+    title: Home
+    path: home
+    icon: mdi:star
+    header:
+      layout: start
+      badges_position: bottom
+      badges_wrap: wrap
+      card:
+        type: custom:streamline-card
+        template: clock_header
+        variables:
+          scale: 18px
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            icon: mdi:calendar-today
+            heading: Calendar
+            heading_style: title
+            tap_action:
+              action: navigate
+              navigation_path: "#calendar"
+          - type: custom:week-planner-card
+            calendars:
+              - entity: calendar.tom_personal
+                color: var(--red-color)
+                icon: mdi:face-man
+              - entity: calendar.partner_calendar
+                color: var(--green-color)
+                icon: mdi:face-woman
+              - entity: calendar.family_calendar
+                color: var(--purple-color)
+                icon: mdi:human-male-female-child
+              - entity: calendar.kid_calendar
+                color: var(--blue-color)
+                icon: mdi:cat
+            days: 2
+            startingDay: today
+            startingDayOffset: 0
+            hideWeekend: false
+            noCardBackground: false
+            compact: false
+            locale: en
+            showLocation: false
+            hidePastEvents: false
+            hideDaysWithoutEvents: false
+            hideTodayWithoutEvents: false
+            combineSimilarEvents: true
+            showLegend: false
+            timeFormat: t
+            showDescription: false
+            showNavigation: false
+            grid_options:
+              columns: full
+              rows: 8
+            texts:
+              fullDay: All Day
+              noEvents: No events
+            showTitle: true
+            updateInterval: 300
+            filter: ^(Check In)$
+            card_mod:
+              style: |
+                :host {
+                  display: block;
+                  position: relative;
+                }
+                ha-card {
+                  height: calc(8 * 56px + 7 * 8px);
+                  overflow-y: auto;
+                  overflow-x: hidden;
+                  scrollbar-width: thin;
+                }
+                :host::after {
+                  content: "";
+                  position: absolute;
+                  inset: auto 1px 1px 1px;
+                  height: 48px;
+                  z-index: 3;
+                  border-radius: 0 0 var(--ha-card-border-radius, 12px) var(--ha-card-border-radius, 12px);
+                  background: linear-gradient(transparent,
+                    var(--ha-card-background, var(--card-background-color)));
+                  pointer-events: none;
+                }
+                .events {
+                  margin: 0 !important;
+                }
+                .event:not(.past) {
+                  background-color: color-mix(in srgb, var(--border-color) 25%, transparent) !important;
+                }
+                .end-time { display: none; }
+                .past { opacity: 0.6; }
+                .none {
+                  display: flex;
+                  align-items: center;
+                  gap: 12px;
+                  padding: 10px;
+                  margin-bottom: 5px;
+                  background: var(--card-background-color, var(--ha-card-background, white));
+                  border-left: 5px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+                  border-radius: 0 5px 5px 0 !important;
+                  overflow: hidden;
+                  font-size: 14px;
+                  font-style: italic;
+                  color: var(--secondary-text-color);
+                  line-height: unset !important;
+                }
+                .day .date .number {
+                  display: none;
+                }
+                .day .date .text {
+                  font-size: 1em;
+                }
+      - type: grid
+        cards:
+          - type: heading
+            icon: mdi:checkbox-multiple-outline
+            heading: Tasks
+            heading_style: title
+          - type: custom:chore-calendar-card
+            entities:
+              - entity: calendar.daily_chores
+                exclude: []
+                color: purple
+              - entity: calendar.home_chores
+                exclude:
+                  - pending
+                color: yellow
+            hide_completed: false
+            hide_section_headers: false
+            hide_card_background: false
+            double_tap_action:
+              action: complete
+            tap_action:
+              action: details
+            hold_action:
+              action: edit
+            allow_uncomplete: true
+            completed_period:
+              hours: 8
+            due_date_period:
+              hours: 8
+            hide_add_button: true
+            hide_edit_button: true
+            card_mod:
+              style: |
+                chore-row::part(chore) {
+                  background-color: color-mix(in srgb, var(--border-color) 25%, transparent);
+                }
+                :host {
+                  display: block;
+                  position: relative;
+                }
+                ha-card {
+                  height: calc(8 * 56px + 7 * 8px);
+                  overflow-y: auto !important;
+                  scrollbar-width: thin;
+                }
+                :host::after {
+                  content: "";
+                  position: absolute;
+                  inset: auto 1px 1px 1px;
+                  height: 48px;
+                  border-radius: 0 0 var(--ha-card-border-radius, 12px) var(--ha-card-border-radius, 12px);
+                  background: linear-gradient(transparent,
+                    var(--ha-card-background, var(--card-background-color)));
+                  pointer-events: none;
+                }
+      - type: grid
+        cards:
+          - type: markdown
+            content: "---"
+            text_only: true
+            grid_options:
+              columns: full
+        column_span: 2
+      - type: grid
+        cards:
+          - type: iframe
+            url: https://frame.example.com/?noclock=1&crop=0.2&bg=light
+            hide_background: true
+            grid_options:
+              columns: full
+              rows: 9
+        column_span: 2
+      - type: grid
+        cards:
+          - type: custom:streamline-card
+            template: popup
+            variables:
+              hash: "#calendar"
+              name: Calendar
+              width: 720px
+              cards:
+                - type: custom:week-planner-card
+                  calendars:
+                    - entity: calendar.tom_personal
+                      color: var(--red-color)
+                      name: Tom
+                    - entity: calendar.partner_calendar
+                      color: var(--green-color)
+                      name: Partner
+                    - entity: calendar.family_calendar
+                      color: var(--purple-color)
+                      name: Family
+                    - entity: calendar.kid_calendar
+                      color: var(--blue-color)
+                      name: Kid
+                    - entity: calendar.trash_collection
+                      color: "#7c7c7c"
+                      name: Trash
+                      icon: mdi:delete-empty
+                      hideInLegend: true
+                    - entity: calendar.daily_chores
+                      color: var(--purple-color)
+                      name: Chores
+                      initiallyHidden: true
+                  days: 7
+                  startingDay: today
+                  timeFormat: t
+                  showLegend: true
+                  legendToggle: true
+                  hideDaysWithoutEvents: false
+                  hideTodayWithoutEvents: false
+                  combineSimilarEvents: true
+                  texts:
+                    fullDay: All Day
+                    noEvents: Nothing
+                  showNavigation: true
+                  filter: ^(Check In)$
+                  noCardBackground: true
+                  columns:
+                    extraLarge: 7
+                    large: 7
+                    medium: 7
+                    small: 1
+                  card_mod:
+                    style: |
+                      .event:not(.past) {
+                        background-color: color-mix(in srgb, var(--border-color) 25%, transparent) !important;
+                      }
+                      .end-time { display: none; }
+                      .past { opacity: 0.6; }
+                      .day .date .number {
+                        --day-date-number-font-size: 28px;
+                        --day-date-number-line-height: 1.2em;
+                        font-weight: 680;
+                      }
+          - type: custom:streamline-card
+            template: popup
+            variables:
+              hash: "#weather-details"
+              name: Weather Details
+              popup_mode: centered
+              cards:
+                - type: custom:streamline-card
+                  template: weather_detail
+                  variables:
+                    weather_entity: weather.home_weather
+                    conditions_entity: sensor.weather_conditions
+                    feels_like_entity: sensor.home_weather_feels_like_temperature
+                    sun_event_entity: sensor.sun_status
+    cards: []

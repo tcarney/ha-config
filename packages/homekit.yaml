@@ -1,0 +1,26 @@
+# manually configured homekit bridge
+homekit:
+  - name: "Home Assistant Bridge"
+    mode: bridge
+    filter:
+      include_domains:
+        - cover
+        - climate
+        - vacuum
+      include_entities:
+        - light.front_yard_lights
+        - light.office_desk_lamp
+        - switch.front_doorbell_chime
+        - light.shed_lights
+        - light.shed_exterior_lights
+        - fan.shed_fan
+        - alarm_control_panel.edge_alarm_panel
+        - binary_sensor.dryer_ready
+        - binary_sensor.washer_ready
+        - input_boolean.tv_down_time
+        - light.kid_bedroom_lights
+        - light.living_room_plug
+        - input_select.home_scene
+    entity_config:
+      alarm_control_panel.edge_alarm_panel:
+        code: !secret edge_alarm_panel_pin

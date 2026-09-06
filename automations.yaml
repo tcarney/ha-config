@@ -1,0 +1,359 @@
+- id: '1650738674012'
+  alias: 'Lights: Patio'
+  description: Control string lights from patio
+  triggers:
+  - entity_id:
+    - light.patio_lights
+    alias: Patio Light
+    trigger: state
+  conditions: []
+  actions:
+  - if:
+    - condition: state
+      entity_id: light.patio_lights
+      state: 'on'
+    then:
+    - data: {}
+      target:
+        entity_id: light.outdoor_string_lights
+      action: light.turn_on
+  - if:
+    - condition: state
+      entity_id: light.patio_lights
+      state: 'off'
+    then:
+    - data: {}
+      target:
+        entity_id: light.outdoor_string_lights
+      action: light.turn_off
+  mode: single
+- id: '1651190509694'
+  alias: 'Lights: Master Bedroom Buttons'
+  description: ''
+  triggers:
+  - device_id: 733d27ece327d427c08eb6b3bb849f6e
+    domain: hue
+    type: repeat
+    subtype: 1
+    unique_id: b6049244-33a8-456f-9674-21e89fdd5749
+    trigger: device
+  - device_id: e11e5cd49a644cca5f1566cfeb5c4844
+    domain: hue
+    type: repeat
+    subtype: 1
+    unique_id: cfc56a3a-9533-421d-8654-ecc2ee340398
+    trigger: device
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: and
+        conditions:
+        - condition: state
+          entity_id: light.master_bedroom_dresser_lamp
+          state: 'off'
+        - condition: state
+          entity_id: light.tom_nightstand
+          state: 'off'
+        - condition: state
+          entity_id: light.partner_nightstand
+          state: 'off'
+      sequence:
+      - data: {}
+        target:
+          area_id: master_bedroom
+        action: light.turn_on
+    default:
+    - data: {}
+      target:
+        area_id: master_bedroom
+      action: light.turn_off
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 3
+      milliseconds: 0
+  mode: single
+  max_exceeded: silent
+- id: '1652713581940'
+  alias: 'Lights: Patio Pico On'
+  description: ''
+  triggers:
+  - device_id: 55af4bd0c0df7d043690aaaa2fc160ce
+    domain: lutron_caseta
+    type: press
+    subtype: 'on'
+    trigger: device
+  conditions:
+  - condition: state
+    entity_id: light.patio_lights
+    state: 'on'
+  actions:
+  - data:
+      percentage: 100
+    target:
+      entity_id: fan.patio_ceiling_fan
+    action: fan.turn_on
+  mode: single
+- id: '1652713641572'
+  alias: 'Lights: Patio Pico Off'
+  description: ''
+  triggers:
+  - device_id: 55af4bd0c0df7d043690aaaa2fc160ce
+    domain: lutron_caseta
+    type: press
+    subtype: 'off'
+    trigger: device
+  conditions:
+  - condition: state
+    entity_id: light.patio_lights
+    state: 'off'
+  actions:
+  - data: {}
+    target:
+      entity_id: fan.patio_ceiling_fan
+    action: fan.turn_off
+  mode: single
+- id: '1652841430986'
+  alias: 'Lights: Sitting Room Off'
+  description: ''
+  triggers:
+  - device_id: 08ffa8d930cfe56dac1503529791eee5
+    domain: lutron_caseta
+    type: press
+    subtype: 'off'
+    trigger: device
+  conditions:
+  - condition: and
+    conditions:
+    - condition: state
+      entity_id: light.master_bedroom_dresser_lamp
+      state: 'off'
+    - condition: state
+      entity_id: light.partner_nightstand
+      state: 'off'
+    - condition: state
+      entity_id: light.tom_nightstand
+      state: 'off'
+  actions:
+  - data: {}
+    target:
+      area_id: sitting_room
+    action: light.turn_off
+  mode: single
+- id: '1679961995997'
+  alias: 'Lights: Basement Off'
+  description: ''
+  triggers:
+  - device_id: bbf0bba0f569b35e12b9f1ff25e1150a
+    domain: lutron_caseta
+    type: press
+    subtype: 'off'
+    trigger: device
+  conditions:
+  - condition: state
+    entity_id: light.basement_ceiling_lights
+    state: 'off'
+  actions:
+  - data: {}
+    target:
+      entity_id: light.basement_back_room
+    action: light.turn_off
+  mode: single
+- id: '1721868620338'
+  alias: TV Downtime Control
+  description: ''
+  triggers:
+  - entity_id:
+    - input_boolean.tv_down_time
+    from:
+    trigger: state
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: input_boolean.tv_down_time
+        state: 'on'
+      sequence:
+      - if:
+        - condition: state
+          entity_id: media_player.family_room_tv
+          state: playing
+        then:
+        - target:
+            entity_id: remote.family_room_tv
+          data:
+            command: home
+            num_repeats: 2
+            delay_secs: 5
+          action: remote.send_command
+        alias: Go to Home if Family Room is Playing
+      - alias: Go to Home if Basement is Playing
+        if:
+        - condition: state
+          entity_id: media_player.basement_tv
+          state: playing
+        then:
+        - data:
+            command: home
+            num_repeats: 2
+            delay_secs: 5
+          target:
+            entity_id: remote.basement_tv
+          action: remote.send_command
+      - delay:
+          hours: 0
+          minutes: 0
+          seconds: 10
+          milliseconds: 0
+      - target:
+          entity_id:
+          - remote.family_room_tv
+          - remote.basement_tv
+        data:
+          command: suspend
+        action: remote.send_command
+      - delay:
+          hours: 0
+          minutes: 0
+          seconds: 10
+          milliseconds: 0
+      - metadata: {}
+        data: {}
+        action: switch.turn_off
+        target:
+          entity_id:
+          - switch.kasa_plug_four
+          - switch.kasa_plug_three
+      - action: light.turn_off
+        metadata: {}
+        data: {}
+        target:
+          entity_id: light.fireplace
+    - conditions:
+      - condition: state
+        entity_id: input_boolean.tv_down_time
+        state: 'off'
+      sequence:
+      - metadata: {}
+        data: {}
+        action: switch.turn_on
+        target:
+          entity_id:
+          - switch.kasa_plug_four
+          - switch.kasa_plug_three
+  mode: queued
+  max: 10
+- id: '1755450131056'
+  alias: Sensor Left Open - Back Door
+  description: ''
+  use_blueprint:
+    path: sensor_left_open.yaml
+    input:
+      target_sensor: binary_sensor.back_door
+      delay_minutes: 10
+      notify_service: notify.tom_notification
+- id: '1766084273664'
+  alias: 'Calendar: Google Updates'
+  description: ''
+  triggers:
+  - trigger: time_pattern
+    minutes: /30
+  conditions: []
+  actions:
+  - action: homeassistant.update_entity
+    metadata: {}
+    data:
+      entity_id:
+      - calendar.family_calendar
+      - calendar.tom_personal
+      - calendar.partner_calendar
+      - calendar.kid_calendar
+  mode: single
+- id: '1767109151139'
+  alias: 'Lights: Basement Door'
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.basement_door
+    from:
+    - 'off'
+    to:
+    - 'on'
+  conditions:
+  - condition: state
+    entity_id: light.basement_ceiling_lights
+    state:
+    - 'off'
+  - condition: state
+    entity_id: binary_sensor.basement_motion
+    state:
+    - 'off'
+    for:
+      hours: 0
+      minutes: 3
+      seconds: 30
+  actions:
+  - action: light.turn_on
+    metadata: {}
+    target:
+      entity_id: light.basement_ceiling_lights
+    data: {}
+  mode: single
+- id: '1776985322612'
+  alias: 'Fan: Office'
+  description: ''
+  use_blueprint:
+    path: fan_speed_by_temperature.yaml
+    input:
+      fan_entity: fan.office_ceiling_fan
+      room_temp_sensor: sensor.office_rts_air_temperature
+      max_speed: '75'
+      climate_entity: climate.econet_thermostat
+- id: '1777164498625'
+  alias: 'Fan: Guest Bedroom'
+  description: ''
+  use_blueprint:
+    path: fan_speed_by_temperature.yaml
+    input:
+      fan_entity: fan.guest_bedroom_ceiling_fan
+      room_temp_sensor: sensor.guest_bedroom_rts_air_temperature
+      max_speed: '75'
+      climate_entity: climate.econet_thermostat
+- id: '1777341463868'
+  alias: 'Fan: Kid Bedroom'
+  description: ''
+  use_blueprint:
+    path: fan_speed_by_temperature.yaml
+    input:
+      fan_entity: fan.kid_bedroom_ceiling_fan
+      room_temp_sensor: sensor.kid_bedroom_rts_air_temperature
+      max_speed: '{{ 50 if states(''binary_sensor.home_sleep'') else 100 }}'
+      climate_entity: climate.econet_thermostat
+- id: '1777341505908'
+  alias: 'Fan: Master Bedroom'
+  description: ''
+  use_blueprint:
+    path: fan_speed_by_temperature.yaml
+    input:
+      fan_entity: fan.master_bedroom_ceiling_fan
+      room_temp_sensor: sensor.master_bedroom_rts_air_temperature
+      max_speed: '{{ 50 if states(''binary_sensor.home_sleep'') else 100 }}'
+      climate_entity: climate.econet_thermostat
+- id: '1779389567233'
+  alias: 'Chores: Alert on completion'
+  description: ''
+  triggers:
+  - trigger: event
+    event_type: chore_calendar_status_changed
+    event_data: {}
+  conditions:
+  - condition: template
+    value_template: '{{ trigger.event.data.to_status  == ''completed'' }}'
+  actions:
+  - action: esphome.kitchen_tagreader_rfidreader_tag_ok
+    metadata: {}
+    data: {}
+  mode: single

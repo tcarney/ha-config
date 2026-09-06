@@ -1,0 +1,152 @@
+# Clock header
+#
+# View header carrying the time, the date, the current weather icon and the
+# outside temperature. The icon and the temperature are links, so tapping
+# either opens the weather pop-up.
+#
+#   header:
+#     layout: start
+#     badges_position: bottom
+#     badges_wrap: wrap
+#     card:
+#       type: custom:streamline-card
+#       template: clock_header
+#
+# Optional variables, with their defaults:
+#   scale           16px     base size; every text size is a multiple of it
+#   longest_date             the widest date the format can produce
+#   weather_entity  weather.home_weather
+#   temp_entity     sensor.home_weather_temperature
+#   popup           #weather-details    where the icon and temperature lead
+#
+# One size drives the type. `scale` is not a size anything uses directly; the
+# four text sizes are fixed multiples of it, so a display that wants larger
+# type asks for a larger scale rather than four numbers that can drift apart:
+#
+#   clock  3.5x     AM/PM  1.75x     date  1.25x      temperature  2.25x
+#
+# The layout is a markdown card turned into a CSS grid: the headings become
+# grid areas rather than stacking.
+#
+# The first column has to be wide enough for the longest date, or it wraps,
+# and it has to stay put, or the icon and the temperature shuffle sideways
+# every time the date changes length. A fixed width satisfies both, but only
+# as a number found by trying it, and one that silently goes stale when the
+# font or `scale` changes.
+#
+# Instead the column is `max-content` and `h3::after` carries the longest date
+# the format can produce, laid out but not painted. The column is then always
+# as wide as the worst case and never wider, whatever the font renders it at,
+# and the browser does the measuring. `longest_date` has to be updated
+# alongside the `strftime` format in `content` if that is ever changed.
+#
+# Below 600px the temperature drops out and the icon closes up beside the
+# clock, which is what makes the same header usable on a narrow panel.
+#
+# The icon and the column gap are deliberately not scaled. They are set
+# against the card, not the type.
+#
+# Needs card-mod, and an icon per weather state in www/weather_icons/.
+# `partlycloudy` is the only state with a separate night icon; the rest are
+# used as-is.
+
+default:
+  scale: 16px
+  longest_date: "Wednesday, September 30"
+  weather_entity: weather.home_weather
+  temp_entity: sensor.home_weather_temperature
+  popup: "#weather-details"
+
+card:
+  type: markdown
+  text_only: true
+  content: |-
+    {% set condition = states('[[weather_entity]]') %}
+    {% if condition == 'partlycloudy' and is_state('sun.sun', 'below_horizon') %}
+      {%- set icon = 'partly-cloudy-night' -%}
+    {% else %}
+      {%- set icon = condition -%}
+    {% endif %}
+    # {{ now().strftime("%-I:%M") }}<span>{{ now().strftime("%p") }}</span>
+    ### {{ now().strftime("%A, %B %-d") }}
+
+    [![](/local/weather_icons/{{ icon }}.svg)]([[popup]])
+
+    ## [{{ states('[[temp_entity]]', rounded=True, with_unit=True) }}]([[popup]])
+  card_mod:
+    style:
+      ha-markdown$: |
+        ha-markdown-element {
+          --clock-scale: [[scale]];
+          display: grid !important;
+          grid-template-columns: max-content auto auto;
+          grid-template-areas:
+            "time icon temp"
+            "date icon temp";
+          align-items: center;
+          column-gap: 30px;
+          width: fit-content;
+        }
+        ha-markdown-element > div {
+          display: contents;
+        }
+        h1 {
+          grid-area: time;
+          font-size: calc(var(--clock-scale) * 3.5) !important;
+          font-weight: 680 !important;
+          margin: 0;
+        }
+        h1 span {
+          font-size: calc(var(--clock-scale) * 1.75);
+          font-weight: 680;
+          opacity: 0.6;
+          margin-left: 4px;
+        }
+        h3::after {
+          content: "[[longest_date]]";
+          display: block;
+          height: 0;
+          overflow: hidden;
+          visibility: hidden;
+          white-space: nowrap;
+        }
+        h3 {
+          grid-area: date;
+          font-size: calc(var(--clock-scale) * 1.25) !important;
+          font-weight: 400 !important;
+          margin-block-start: 0;
+          margin-block-end: 6px;
+        }
+        p {
+          grid-area: icon;
+          margin: 0;
+          align-self: start;
+        }
+        a {
+          color: inherit !important;
+          display: block;
+          text-decoration: none;
+          cursor: pointer;
+        }
+        img {
+          width: 100px;
+          height: 100px;
+          display: block;
+        }
+        h2 {
+          grid-area: temp;
+          font-size: calc(var(--clock-scale) * 2.25) !important;
+          font-weight: 680 !important;
+          margin: 0;
+        }
+        @media (max-width: 600px) {
+          ha-markdown-element {
+            grid-template-columns: auto auto;
+            grid-template-areas:
+              "time icon"
+              "date icon";
+          }
+          h2 {
+            display: none;
+          }
+        }

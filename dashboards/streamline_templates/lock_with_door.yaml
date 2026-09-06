@@ -1,0 +1,64 @@
+card:
+  type: custom:bubble-card
+  card_type: button
+  button_type: state
+  entity: "[[lock_entity]]"
+  show_state: true
+  tap_action:
+    action: none
+  button_action:
+    tap_action:
+      action: none
+  sub_button:
+    main:
+      - icon: mdi:door-open
+        show_background: false
+        tap_action:
+          action: none
+        visibility:
+          - condition: state
+            entity: "[[door_sensor]]"
+            state: "on"
+        name: Open
+      - icon: mdi:lock
+        show_background: true
+        state_background: false
+        tap_action:
+          action: call-service
+          service: lock.lock
+          target:
+            entity_id: "[[lock_entity]]"
+        visibility:
+          - condition: state
+            entity: "[[door_sensor]]"
+            state: "off"
+          - condition: state
+            entity: "[[lock_entity]]"
+            state: unlocked
+        name: Lock
+      - icon: mdi:lock-open-variant
+        show_background: true
+        state_background: false
+        tap_action:
+          action: call-service
+          service: lock.unlock
+          target:
+            entity_id: "[[lock_entity]]"
+        visibility:
+          - condition: state
+            entity: "[[door_sensor]]"
+            state: "off"
+          - condition: state
+            entity: "[[lock_entity]]"
+            state: locked
+        name: Unlock
+  styles: |
+    .bubble-state::after {
+      content: "${hass.states['[[door_sensor]]'].state === 'on' ? ',\\a0 Open' : ''}";
+    }
+    .bubble-icon {
+      color: var(--state-lock-${hass.states['[[lock_entity]]'].state}-color, var(--state-icon-color)) !important;
+    }
+    .bubble-sub-button {
+      width: 105px !important;
+    }

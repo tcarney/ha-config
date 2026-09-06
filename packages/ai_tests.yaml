@@ -1,0 +1,71 @@
+# Example: Generate weather and indoor comfort report
+script:
+  weather_report:
+    alias: "Weather and comfort report"
+    sequence:
+      - action: ai_task.generate_data
+        data:
+          entity_id: ai_task.ollama_ai_task
+          task_name: weather comfort report
+          instructions: |
+            Based on the current conditions:
+            - Condition: {{ states('weather.home_weather') }}
+            - Temperature: {{ state_attr('weather.home_weather', 'temperature') }}°F
+            - Feels like: {{ state_attr('weather.home_weather', 'apparent_temperature') }}°F
+            - Humidity: {{ state_attr('weather.home_weather', 'humidity') }}%
+            - Cloud coverage: {{ state_attr('weather.home_weather', 'cloud_coverage') }}
+            - Wind speed: {{ state_attr('weather.home_weather', 'wind_speed') }}mph
+            - Wind gusts: {{ state_attr('weather.home_weather', 'wind_gust_speed') }}mph
+
+
+            Generate a short, humorous description of the current weather outside.
+        response_variable: weather_report
+      - action: persistent_notification.create
+        data:
+          notification_id: weather_report
+          title: "🌤️ Weather Report"
+          message: |
+            {{ weather_report.data }}
+
+  comfort_report:
+    alias: "Weather and comfort report"
+    sequence:
+      - action: ai_task.generate_data
+        data:
+          entity_id: ai_task.ollama_ai_task
+          task_name: indoor comfort analysis
+          instructions: >
+            Based on the current conditions:
+            - Upstairs temperature: {{ states('sensor.upstairs_temperature_average') }}°F
+            - Downstairs temperature: {{ states('sensor.downstairs_temperature_average') }}°F
+            - Basement temperature: {{ states('sensor.basement_temperature_average') }}°F
+            - Temperature range: {{ states('sensor.indoor_temperature_range') }}°F
+            - Indoor humidity: {{ states('sensor.indoor_humidity') }}%
+            - Humidity range: {{ states('sensor.indoor_humidity_range') }}%
+            - Outside temperature: {{ states('sensor.home_weather_temperature') }}°F
+
+            Temperature values represent the average for each level of the home. 
+            Temperature and humidity ranges are calculated using all rooms in the home. 
+            Use the outside temperature to understand the HVAC operating mode and load.
+
+            Generate an analysis of the comfort level inside the home.   For indoor
+            humidity, consider both comfort levels and condensation risk due to outside
+            temperature.  Provide only an analysis, do not provide recommendations or
+            corrective actions.
+
+            Calculate a value to represent the indoor comfort level using the range: 1
+            (uncomfortable) to 10 (ideal comfort)
+          structure:
+            comfort_analysis:
+              description: Indoor comfort analysis
+              required: true
+              selector:
+                text:
+            indoor_comfort:
+              description: Value representing the indoor comfort level
+              required: true
+              selector:
+                number:
+                  min: 1
+                  max: 10
+        response_variable: report
