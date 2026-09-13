@@ -1,0 +1,635 @@
+# Star Jar (Kid)
+#
+# Detectors, the request flow and the parent notifications for the star_jar
+# integration. The integration owns the score (sensor.kid_star_jar and
+# friends) and exposes star_jar.award, star_jar.adjust and star_jar.redeem.
+# Nothing here keeps a count of its own. This file decides *when* a star is
+# earned and hands the decision over: every automation below ends in a
+# star_jar.award call. Every call names its detector in `source` (chore,
+# bedtime, morning, parent) so the ledger and the narration can tell them
+# apart. The dashboards show the result.
+#
+# Two seams, kept on purpose. chore_calendar must never learn about rewards:
+# it is a separate integration with its own release cycle, and this file
+# only listens to its chore_calendar_status_changed event. star_jar must
+# never learn about detectors: no school days, no chores, no lights.
+#
+# What earns a star:
+#   chores    one star per completion on her own chore_calendar list. Her
+#             chores get their own list rather than a filter on the shared
+#             one because chore-calendar-card cannot filter by assignee, so
+#             a shared list would show everyone's chores on her tablet.
+#   bedtime   lights out by the displayed target, every night. She is told
+#             nine and judged at half past, and the star lands in the
+#             morning, the first moment it is actually true.
+#   morning   a bonus on school days for finishing the whole morning list
+#             before the target, on top of the per-chore stars.
+#   parent    anything else. She asks from the tablet, the request queues
+#             on a to-do list and pings a parent, and completing the item
+#             is the approval.
+#
+# Rewards: a full jar is one reward, and only a full jar is ever spent;
+# loose stars are never drained. There is one reward mechanism,
+# star_jar.redeem, and for now every reward is parent-mediated: redeeming
+# records the claim and notifies a parent, who provides the thing. A
+# self-service reward, when one exists, is a script that calls redeem first
+# and acts second, so a refused redeem never delivers. The reward menu lives
+# on the dashboards.
+#
+# Tuning knobs, all in this file:
+#   star_values                           per-chore star values, in
+#                                         "Star Jar: Chore Completed"
+#   group.kid_morning_chores           which chores make up the morning
+#                                         routine
+#   input_datetime.kid_bedtime         21:00 displayed target; judged 30
+#                                         minutes later
+#   input_datetime.kid_morning_target  09:00, when the morning bonus closes
+#
+# The two input_datetime helpers carry `initial`, so a restart resets them to
+# the values here. Tune them in this file, not in the UI.
+#
+# Needs on the host, created in the UI because they are config-flow
+# integrations:
+#   star_jar entry "Kid"            sensor.kid_star_jar and friends
+#   chore_calendar entry "Kid Chores"  calendar.kid_chores and one
+#                                      sensor.kid_chores_<chore> per chore
+#   Local To-do "Kid Star Requests" todo.kid_star_requests
+#
+# Still open, to be decided from use: whether some chores should pay more
+# than one star (star_values ships empty), and whether the physical jar or
+# this one is the record (star_jar.adjust with a reason supports either, and
+# the ledger shows every reconciliation).
+#
+# Uncompleting a chore takes its star back (the chore detector again), so
+# uncomplete-and-complete pays once. The refund is whatever the ledger says
+# that chore was last paid, so star_values needs no second copy and a
+# completion that never paid (a skip, a status flip from an edit) refunds
+# nothing.
+#
+# Everything here is kid_* throughout. The integration takes a second
+# child as a second entry; these detectors and dashboards do not, yet.
+#
+# sensor.kid_bedtime_status is kept out of the recorder. It is wording
+# for the dashboards derived from the pending boolean and the bedtime
+# helper, which carry the history. The school-day sensor and the chore
+# counters stay recorded.
+
+input_datetime:
+  kid_bedtime:
+    name: "Kid Bedtime"
+    icon: mdi:weather-night
+    has_date: false
+    has_time: true
+    initial: "21:00:00"
+  kid_morning_target:
+    name: "Kid Morning Target"
+    icon: mdi:alarm-check
+    has_date: false
+    has_time: true
+    initial: "09:00:00"
+
+input_boolean:
+  kid_bedtime_star_pending:
+    name: "Kid Bedtime Star Pending"
+    icon: mdi:star-outline
+  kid_morning_bonus_paid:
+    name: "Kid Morning Bonus Paid"
+    icon: mdi:star-check
+
+# The morning routine is whatever is in this group. The counters below expand
+# it, so adding a chore here is the whole change.
+group:
+  kid_morning_chores:
+    name: "Kid Morning Chores"
+    entities:
+      - sensor.kid_chores_eat_breakfast
+      - sensor.kid_chores_get_dressed
+
+template:
+  # Morning routine progress. `remaining` is what the bonus watches; `done`
+  # exists so the bonus can tell "everything is finished" from "the chore
+  # sensors have not loaded yet", which also reads as zero remaining.
+  - use_blueprint:
+      path: status_sensors/group_state_counter.yaml
+      input:
+        name: "Kid Morning Chores Remaining"
+        unique_id: star_jar_kid_morning_chores_remaining
+        sources:
+          - group.kid_morning_chores
+        match_states:
+          - pending
+          - due
+          - overdue
+        unit_of_measurement: "Left"
+        icon_active: mdi:clipboard-list-outline
+        icon_idle: mdi:clipboard-check-outline
+
+  - use_blueprint:
+      path: status_sensors/group_state_counter.yaml
+      input:
+        name: "Kid Morning Chores Done"
+        unique_id: star_jar_kid_morning_chores_done
+        sources:
+          - group.kid_morning_chores
+        match_states:
+          - completed
+        unit_of_measurement: "Done"
+        icon_active: mdi:clipboard-check
+        icon_idle: mdi:clipboard-outline
+
+  # One line for the dashboards. The 30-minute buffer matches the offset on
+  # the bedtime automation's check trigger, and 06:00 is the hour the star
+  # is paid; before it, the night in question is still the previous one.
+  # Change them together with the automation.
+  - sensor:
+      - name: "Kid Bedtime Status"
+        unique_id: star_jar_kid_bedtime_status
+        icon: >
+          {{ 'mdi:star' if is_state('input_boolean.kid_bedtime_star_pending', 'on') else 'mdi:star-outline' }}
+        state: >
+          {% set bedtime = today_at(states('input_datetime.kid_bedtime')) %}
+          {% if now().hour < 6 %}{% set bedtime = bedtime - timedelta(days=1) %}{% endif %}
+          {% if is_state('input_boolean.kid_bedtime_star_pending', 'on') %}
+            On track
+          {% elif now() >= bedtime + timedelta(minutes=30) %}
+            Missed tonight
+          {% else %}
+            Lights out by {{ bedtime.strftime('%-I:%M %p') }}
+          {% endif %}
+
+  # School day: Monday to Friday with no family-calendar event today whose
+  # summary or description says "No School". Re-read at 04:00, on start, and
+  # whenever the family calendar changes. Multi-day breaks, summer included,
+  # must be on the calendar or every weekday reads as a school day; the
+  # `detail` attribute is shown on the dashboards so a wrong reading is
+  # visible rather than silent. If the calendar is unavailable the action
+  # fails and the sensor keeps its previous state.
+  - triggers:
+      - trigger: time
+        at: "04:00:00"
+      - trigger: homeassistant
+        event: start
+      - trigger: state
+        entity_id: calendar.family_calendar
+    actions:
+      - action: calendar.get_events
+        target:
+          entity_id: calendar.family_calendar
+        data:
+          start_date_time: "{{ today_at('00:00') }}"
+          end_date_time: "{{ today_at('00:00') + timedelta(days=1) }}"
+        response_variable: family_today
+    binary_sensor:
+      - name: "Kid School Day"
+        unique_id: star_jar_kid_school_day
+        icon: >
+          {{ 'mdi:school' if this.state == 'on' else 'mdi:school-outline' }}
+        state: >
+          {% set ns = namespace(no_school=false) %}
+          {% for event in family_today['calendar.family_calendar']['events'] %}
+            {% set text = (event.summary ~ ' ' ~ event.description | default('')) | lower %}
+            {% if 'no school' in text %}{% set ns.no_school = true %}{% endif %}
+          {% endfor %}
+          {{ now().weekday() < 5 and not ns.no_school }}
+        attributes:
+          detail: >
+            {% set ns = namespace(match=none) %}
+            {% for event in family_today['calendar.family_calendar']['events'] %}
+              {% set text = (event.summary ~ ' ' ~ event.description | default('')) | lower %}
+              {% if ns.match is none and 'no school' in text %}{% set ns.match = event.summary %}{% endif %}
+            {% endfor %}
+            {% if now().weekday() >= 5 %}
+              Weekend
+            {% elif ns.match is not none %}
+              {{ ns.match }}
+            {% else %}
+              School day
+            {% endif %}
+
+automation:
+  # Detector 1: chores. One star per completion on Kid's list, more for
+  # any chore named in star_values. Two triggers because event_data is an
+  # exact match and a skip can also land on `completed`; skipping is not
+  # doing, so only `complete` (the card, the todo entity, the service) and
+  # `tag` (a scanned tag) count.
+  - alias: "Star Jar: Chore Completed"
+    id: star_jar_chore_completed
+    description: One star per completed chore on Kid's list, more for chores named in star_values.
+    mode: queued
+    triggers:
+      - trigger: event
+        event_type: chore_calendar_status_changed
+        event_data:
+          entity_id: calendar.kid_chores
+          to_status: completed
+          source: complete
+      - trigger: event
+        event_type: chore_calendar_status_changed
+        event_data:
+          entity_id: calendar.kid_chores
+          to_status: completed
+          source: tag
+    variables:
+      # Chore name -> stars, e.g. {"Clean room": 2}. Anything not listed pays
+      # 1. A renamed chore drops back to 1, which is the right failure.
+      star_values: {}
+      chore: "{{ trigger.event.data.chore_name }}"
+      stars: "{{ star_values.get(chore, 1) }}"
+    actions:
+      - action: star_jar.award
+        target:
+          entity_id: sensor.kid_star_jar
+        data:
+          stars: "{{ stars }}"
+          reason: "{{ chore }}"
+          source: chore
+
+  # The other half of detector 1: an uncomplete gives the star back, so
+  # uncomplete-and-complete pays once. The amount is read from the ledger,
+  # the latest award for this chore among the jar's recent entries, which
+  # keeps star_values in one place and refunds nothing for a completion that
+  # never paid. A negative adjust floors at zero and never touches rewards,
+  # so a star that had just filled the jar is not clawed back out of the
+  # reward; that is the integration's rule and the ledger shows both sides.
+  - alias: "Star Jar: Chore Uncompleted"
+    id: star_jar_chore_uncompleted
+    description: Takes back what the ledger says a chore on Kid's list was paid when that completion is reverted.
+    mode: queued
+    triggers:
+      - trigger: event
+        event_type: chore_calendar_status_changed
+        event_data:
+          entity_id: calendar.kid_chores
+          from_status: completed
+          source: uncomplete
+    variables:
+      chore: "{{ trigger.event.data.chore_name }}"
+      paid: >-
+        {% set recent = state_attr('sensor.kid_star_jar', 'recent') or [] %}
+        {% set awards = recent
+          | selectattr('action', 'eq', 'award')
+          | selectattr('source', 'eq', 'chore')
+          | selectattr('reason', 'eq', chore)
+          | map(attribute='stars') | list %}
+        {{ awards[0] if awards else 0 }}
+    conditions:
+      - condition: template
+        value_template: "{{ paid | int(0) > 0 }}"
+    actions:
+      - action: star_jar.adjust
+        target:
+          entity_id: sensor.kid_star_jar
+        data:
+          stars: "{{ -(paid | int) }}"
+          reason: "{{ chore }} uncompleted"
+          source: chore
+
+  # Detector 2: bedtime, every night. Displayed target is the helper (21:00);
+  # the check runs 30 minutes later so she is told nine and judged at half
+  # past. Lights back on for five minutes overnight forfeits the star; a
+  # short wake-up does not. The star is paid at 06:00, the first moment it
+  # is actually true, or at startup if Home Assistant was down at 06:00;
+  # the time condition on that branch keeps an overnight restart from
+  # paying early. Nothing pays twice: the flag is cleared once paid.
+  - alias: "Star Jar: Bedtime"
+    id: star_jar_bedtime
+    description: Lights out by bedtime earns a star, paid at 06:00. Lights on for 5 minutes overnight forfeits it.
+    mode: queued
+    triggers:
+      - trigger: time
+        at:
+          entity_id: input_datetime.kid_bedtime
+          offset: "00:30:00"
+        id: check
+      - trigger: state
+        entity_id: light.area_kid_bedroom
+        to: "on"
+        for: "00:05:00"
+        id: clear
+      - trigger: time
+        at: "06:00:00"
+        id: award
+      - trigger: homeassistant
+        event: start
+        id: award
+    actions:
+      - choose:
+          - conditions:
+              - condition: trigger
+                id: check
+              - condition: state
+                entity_id: light.area_kid_bedroom
+                state: "off"
+            sequence:
+              - action: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.kid_bedtime_star_pending
+          - conditions:
+              - condition: trigger
+                id: clear
+              - condition: state
+                entity_id: input_boolean.kid_bedtime_star_pending
+                state: "on"
+            sequence:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.kid_bedtime_star_pending
+          - conditions:
+              - condition: trigger
+                id: award
+              - condition: state
+                entity_id: input_boolean.kid_bedtime_star_pending
+                state: "on"
+              - condition: time
+                after: "06:00:00"
+                before: input_datetime.kid_bedtime
+            sequence:
+              - action: star_jar.award
+                target:
+                  entity_id: sensor.kid_star_jar
+                data:
+                  stars: 1
+                  reason: "lights out by bedtime"
+                  source: bedtime
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.kid_bedtime_star_pending
+
+  # Detector 3: the morning routine, school days only. The chores paid out
+  # one by one under detector 1; this is a bonus for finishing the whole
+  # list before the target. `remaining` reaching zero is the signal, and
+  # four guards keep it honest:
+  #   - `done` above zero: a chore_calendar reload empties the group for a
+  #     moment, which also reads as zero remaining;
+  #   - every member completed today: chore_calendar reports a chore as
+  #     `completed` until its next pending window opens, so yesterday's
+  #     completion, or a skip, can bring the count to zero with the routine
+  #     half done. No native condition can read a date out of an attribute,
+  #     so this one is a template;
+  #   - the paid latch: a YAML reload re-creates the counter and fires the
+  #     trigger again on the same zero. The latch survives reloads and
+  #     restarts and is released at 04:00, when the school-day sensor
+  #     re-reads.
+  #   - ten seconds of settling on the trigger: the last chore's own star
+  #     and this bonus race off the same completion, and the bonus should
+  #     land second so the celebration is the latest message.
+  - alias: "Star Jar: Morning Routine"
+    id: star_jar_morning_routine
+    description: A bonus star, once a day, for finishing every morning chore before the target on a school day.
+    mode: queued
+    triggers:
+      - trigger: state
+        entity_id: sensor.kid_morning_chores_remaining
+        to: "0"
+        not_from:
+          - unknown
+          - unavailable
+        for: "00:00:10"
+        id: finished
+      - trigger: time
+        at: "04:00:00"
+        id: reset
+    actions:
+      - choose:
+          - conditions:
+              - condition: trigger
+                id: reset
+            sequence:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.kid_morning_bonus_paid
+          - conditions:
+              - condition: trigger
+                id: finished
+              - condition: state
+                entity_id: input_boolean.kid_morning_bonus_paid
+                state: "off"
+              - condition: state
+                entity_id: binary_sensor.kid_school_day
+                state: "on"
+              - condition: time
+                before: input_datetime.kid_morning_target
+              - condition: numeric_state
+                entity_id: sensor.kid_morning_chores_done
+                above: 0
+              - condition: template
+                value_template: >-
+                  {% set ns = namespace(all_today=true) %}
+                  {% for chore in expand('group.kid_morning_chores') %}
+                    {% set done = chore.attributes.get('last_completed') %}
+                    {% if done is none or (done | as_datetime | as_local).date() != now().date() %}
+                      {% set ns.all_today = false %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ ns.all_today }}
+            sequence:
+              - action: star_jar.award
+                target:
+                  entity_id: sensor.kid_star_jar
+                data:
+                  stars: 1
+                  reason: "the whole morning routine, on time"
+                  source: morning
+              - action: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.kid_morning_bonus_paid
+
+  # Detector 4: judgment calls. Ticking an item on the request list is the
+  # approval. The list's state is its open-item count, so completing one
+  # changes it; award each completed item and remove it. Removing does not
+  # change the count, so this does not re-trigger itself.
+  - alias: "Star Jar: Request Approved"
+    id: star_jar_request_approved
+    description: Award every completed item on the request list, removing each as it is paid.
+    mode: queued
+    triggers:
+      - trigger: state
+        entity_id: todo.kid_star_requests
+        not_from:
+          - unknown
+          - unavailable
+        not_to:
+          - unknown
+          - unavailable
+    actions:
+      - action: todo.get_items
+        target:
+          entity_id: todo.kid_star_requests
+        data:
+          status: completed
+        response_variable: approved
+      # One item at a time, by uid. A blanket remove_completed_items would
+      # also sweep an item ticked while this run is in flight, before the
+      # queued run for it could pay it; and removing each item the moment it
+      # is paid means an award that fails leaves nothing paid-but-unremoved
+      # to be paid twice on the retry. The reason is cut to the award
+      # service's 200-character limit. The notification for the request is
+      # cleared too, so a tick on the dashboard does not leave a stale
+      # Approve button on the phone.
+      - repeat:
+          for_each: "{{ approved['todo.kid_star_requests']['items'] }}"
+          sequence:
+            - action: star_jar.award
+              target:
+                entity_id: sensor.kid_star_jar
+              data:
+                stars: 1
+                reason: "{{ repeat.item.summary | truncate(200, true, '', 0) }}"
+                source: parent
+            - action: todo.remove_item
+              target:
+                entity_id: todo.kid_star_requests
+              data:
+                item: "{{ repeat.item.uid }}"
+            - action: notify.tom_notification
+              data:
+                message: clear_notification
+                data:
+                  tag: "star_request_{{ repeat.item.uid }}"
+
+  # Approve or decline from the phone. Approve completes the item by uid,
+  # which the automation above turns into the award; decline drops it. Either
+  # can race a tick in the UI, so a missing item is not an error worth
+  # stopping on.
+  - alias: "Star Jar: Request Notification Action"
+    id: star_jar_request_action
+    description: Approve or decline a star request from the phone notification.
+    mode: queued
+    triggers:
+      - trigger: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: STAR_APPROVE
+        id: approve
+      - trigger: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: STAR_DECLINE
+        id: decline
+    variables:
+      uid: "{{ trigger.event.data.action_data.uid }}"
+    actions:
+      - if:
+          - condition: trigger
+            id: approve
+        then:
+          - action: todo.update_item
+            continue_on_error: true
+            target:
+              entity_id: todo.kid_star_requests
+            data:
+              item: "{{ uid }}"
+              status: completed
+        else:
+          - action: todo.remove_item
+            continue_on_error: true
+            target:
+              entity_id: todo.kid_star_requests
+            data:
+              item: "{{ uid }}"
+
+  # The jar filling is the celebration, and a claimed reward is a parent's
+  # cue to provide it. Both arrive on the integration's event; jar_filled is
+  # a flag on any award or positive adjustment, redeem is its own action.
+  - alias: "Star Jar: Parent Notifications"
+    id: star_jar_parent_notifications
+    description: Tell a parent when a jar fills and when a reward is claimed.
+    mode: queued
+    triggers:
+      - trigger: event
+        event_type: star_jar_updated
+        event_data:
+          entity_id: sensor.kid_star_jar
+          jar_filled: true
+        id: filled
+      - trigger: event
+        event_type: star_jar_updated
+        event_data:
+          entity_id: sensor.kid_star_jar
+          action: redeem
+        id: redeem
+    actions:
+      - choose:
+          - conditions:
+              - condition: trigger
+                id: filled
+            sequence:
+              - action: notify.tom_notification
+                data:
+                  title: "Jar full!"
+                  message: >-
+                    Kid filled a jar with {{ trigger.event.data.reason }}.
+                    {{ trigger.event.data.rewards_available }} {{ 'reward' if trigger.event.data.rewards_available == 1 else 'rewards' }} ready.
+                  data:
+                    tag: star_jar_filled
+          - conditions:
+              - condition: trigger
+                id: redeem
+            sequence:
+              - action: notify.tom_notification
+                data:
+                  title: "Reward claimed"
+                  message: >-
+                    Kid redeemed: {{ trigger.event.data.reward }}.
+                    {{ trigger.event.data.rewards_available }} {{ 'reward' if trigger.event.data.rewards_available == 1 else 'rewards' }} left.
+                  data:
+                    tag: star_jar_redeem
+
+script:
+  # A request from Kid: queue it and ping a parent. The notification's
+  # buttons come back as mobile_app_notification_action events carrying
+  # action_data, which "Star Jar: Request Notification Action" handles.
+  kid_star_request:
+    alias: "Kid Star Request"
+    description: Ask a parent for a star. Adds the request to the queue and pings a phone.
+    icon: mdi:star-plus-outline
+    mode: queued
+    fields:
+      reason:
+        name: Reason
+        description: What the star is for, as it will read in the jar.
+        required: true
+        selector:
+          text:
+    sequence:
+      - action: todo.add_item
+        target:
+          entity_id: todo.kid_star_requests
+        data:
+          item: "{{ reason }}"
+      # add_item returns nothing, so read the list back for the new item's
+      # uid. The phone actions carry the uid rather than the text: two
+      # requests with the same text are otherwise indistinguishable, and a
+      # text-derived notification tag would replace the first one's
+      # notification with the second's.
+      - action: todo.get_items
+        target:
+          entity_id: todo.kid_star_requests
+        data:
+          status: needs_action
+        response_variable: open_items
+      - variables:
+          uid: >-
+            {% set matches = open_items['todo.kid_star_requests']['items']
+               | selectattr('summary', 'eq', reason | trim)
+               | map(attribute='uid') | list %}
+            {{ matches | last if matches else '' }}
+      - action: notify.tom_notification
+        data:
+          title: "Star request"
+          message: "Kid asks for a star: {{ reason }}"
+          data:
+            tag: "star_request_{{ uid }}"
+            action_data:
+              uid: "{{ uid }}"
+            actions:
+              - action: STAR_APPROVE
+                title: Approve
+              - action: STAR_DECLINE
+                title: Decline
+                destructive: true
+
+recorder:
+  exclude:
+    entities:
+      - sensor.kid_bedtime_status

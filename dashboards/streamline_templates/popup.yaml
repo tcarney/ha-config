@@ -21,13 +21,15 @@
 # Optional:
 #   width       desktop width; phones are full width regardless
 #   popup_mode  "default", or "centered" to sit in the middle of the screen
-#   trigger     conditions that open the pop-up on their own, as the doorbell
-#               does when the button is pressed
+#   trigger        conditions that open the pop-up on their own, as the
+#                  doorbell does when the button is pressed
+#   trigger_close  close it again when those conditions stop holding
+#   auto_close     milliseconds of inactivity before it closes, default 30000
 #
-# `cards` is a list rather than a scalar, which streamline handles: a variable
-# whose value is an object replaces the quoted "[[cards]]" token wholesale,
-# so the array survives. Scalars are substituted inside the quotes instead,
-# which is why every scalar token below has to stay quoted.
+# `cards` is a list, and streamline handles that: a variable whose value is
+# an object replaces the quoted "[[cards]]" token wholesale, so the array
+# survives. Scalars are substituted inside the quotes instead. That is why
+# every scalar token below has to stay quoted.
 #
 # `button_type: name` because these pop-ups carry no entity. `state` would
 # only change the defaults for showing state and attributes, both of which
@@ -37,11 +39,17 @@
 # as `if (!trigger) return null`, so null takes exactly the same path as the
 # key being absent; an empty list is truthy and returns early instead, which
 # would skip the older trigger_entity/trigger_state handling below it.
+#
+# `trigger_close` defaults to null for the same reason: streamline substitutes
+# scalars inside the quotes, so a default of `false` would reach Bubble Card
+# as the string "false", which is truthy. Pass `true` to turn it on.
 
 default:
   width: 540px
   popup_mode: default
   trigger: null
+  trigger_close: null
+  auto_close: "30000"
 
 card:
   type: custom:bubble-card
@@ -52,7 +60,7 @@ card:
   width_desktop: "[[width]]"
   popup_mode: "[[popup_mode]]"
   backdrop_blur: "5"
-  auto_close: "30000"
+  auto_close: "[[auto_close]]"
   popup_style: classic
   buttons_position: left
   show_header: true
@@ -67,4 +75,5 @@ card:
     main: []
     bottom: []
   trigger: "[[trigger]]"
+  trigger_close: "[[trigger_close]]"
   cards: "[[cards]]"

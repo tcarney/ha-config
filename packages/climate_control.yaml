@@ -1,3 +1,9 @@
+# Climate control
+#
+# The basement dehumidifier as a generic_hygrostat on a smart plug, kept in
+# step with the main thermostat's humidity target by one automation. Fan
+# groups for the upstairs ceiling fans and the air purifiers, and a
+# circulation mode selector (Off, Sleep, Low, High).
 generic_hygrostat:
   - name: Basement Dehumidifier
     unique_id: generic_basement_dehum

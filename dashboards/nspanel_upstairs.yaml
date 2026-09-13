@@ -1,3 +1,7 @@
+# Upstairs panel
+#
+# The wall panel upstairs. Views: home, doorbell, Kid's room, climate,
+# and a read-only stars view for bedtime.
 kiosk_mode:
   mobile_settings:
     hide_header: true
@@ -18,6 +22,9 @@ navbar-templates:
         url: /nspanel-upstairs/climate
       - icon: mdi:teddy-bear
         url: /nspanel-upstairs/kid-room
+      - icon: mdi:star-shooting
+        url: /nspanel-upstairs/stars
+streamline_templates: !include_dir_named streamline_templates
 views:
   - type: sections
     max_columns: 1
@@ -177,6 +184,8 @@ views:
             calendars:
               - entity: calendar.family_calendar
                 color: var(--purple-color)
+              - entity: calendar.kid_calendar
+                color: var(--blue-color)
             days: 1
             startingDay: today
             startingDayOffset: 0
@@ -215,10 +224,13 @@ views:
             heading_style: subtitle
           - type: custom:chore-calendar-card
             entities:
-              - entity: calendar.daily_chores
+              - entity: calendar.kid_chores
+                color: blue
             hide_completed: false
             hide_section_headers: true
             hide_card_background: true
+            hide_add_button: true
+            hide_show_all: true
             tap_action:
               action: details
             double_tap_action:
@@ -345,6 +357,45 @@ views:
                 .more-info {
                   display: none !important;
                 }
+      - type: grid
+        cards:
+          - type: custom:navbar-card
+            template: main_navbar
+  - type: sections
+    max_columns: 1
+    title: Stars
+    path: stars
+    icon: mdi:star-shooting
+    header: *header-card
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            icon: mdi:star-shooting
+            heading: Kid's Stars
+            heading_style: subtitle
+            badges:
+              - type: entity
+                entity: sensor.kid_rewards_available
+                show_state: true
+                show_icon: true
+                tap_action:
+                  action: none
+          - type: custom:star-jar-card
+            entity: sensor.kid_star_jar
+            height: 150
+          - type: tile
+            entity: sensor.kid_bedtime_status
+            name: Bedtime
+            icon: mdi:weather-night
+            tap_action:
+              action: none
+          - type: tile
+            entity: binary_sensor.kid_school_day
+            name: School
+            state_content: detail
+            tap_action:
+              action: none
       - type: grid
         cards:
           - type: custom:navbar-card

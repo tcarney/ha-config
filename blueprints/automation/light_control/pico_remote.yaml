@@ -1,8 +1,6 @@
 # Pico Area Light Control
 # Place in: <config>/blueprints/automation/light_control/pico_remote.yaml
 #
-# Ordered, group-aware light control from a Lutron Caseta Pico remote.
-#
 # This blueprint holds only the Pico-specific parts: the button events, the
 # mapping from Caseta's button names onto the script's vocabulary, and
 # settling between queued presses. How the lights behave lives in

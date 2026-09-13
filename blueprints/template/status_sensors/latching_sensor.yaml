@@ -1,14 +1,6 @@
 # Latching Sensor
 # Place in: <config>/blueprints/template/status_sensors/latching_sensor.yaml
 #
-# A binary sensor that remembers which of two events happened most recently.
-# One set of sensors turns it on, another turns it off, and it holds that
-# state in between.
-#
-# Both events are read as edges: the moment a source goes from off to on. That
-# is the difference between "the door is open" and "the door was opened", and
-# it is what lets the sensor stay on long after the event that set it has passed.
-#
 # The sensor waits for the clearing event however long that takes; for
 # something that should give up on its own, use a timeout-based sensor instead.
 #
@@ -21,7 +13,7 @@ blueprint:
   description: >
     A binary sensor set by one event and cleared by another, holding its
     state in between. Both sides trigger on the off-to-on edge of their
-    sources, so momentary pulses are remembered rather than missed.
+    sources, so a momentary pulse is remembered.
   domain: template
   input:
     name:

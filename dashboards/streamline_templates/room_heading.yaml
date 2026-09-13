@@ -19,7 +19,7 @@
 #   icon   leading icon; empty by default, since the badges carry the meaning
 #
 # Needs card-mod. Headings whose badges are not a temperature/humidity pair
-# are left as plain heading cards rather than bent to fit this.
+# stay plain heading cards.
 
 default:
   icon: ""

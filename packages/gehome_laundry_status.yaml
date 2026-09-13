@@ -1,3 +1,17 @@
+# GE Home laundry status
+#
+# Washer and dryer state for the dashboards, built on the ge_home
+# integration's sensors. The *ready* binary sensors are latches: set by the
+# end-of-cycle pulse, cleared when the door opens. The status sensors turn
+# machine state, cycle and time remaining into one readable line ("Ready at
+# 14:32", "Venting", "Open"). A counter tracks wash cycles so the washer's
+# self-clean chore comes due on schedule.
+#
+# The three status sensors are kept out of the recorder: they are wording
+# derived from the ge_home sensors, which are recorded themselves, and the
+# "Ready at" time can flicker between adjacent minutes as the machine's
+# estimate shifts. The ready latches stay recorded; nothing else holds that
+# state.
 template:
   # "Ready" latches: the end-of-cycle sensor pulses, so hold it until the
   # door is opened and the load is taken out.
@@ -130,3 +144,10 @@ automation:
         data:
           entity_id: sensor.home_chores_washer_self_clean
     mode: single
+
+recorder:
+  exclude:
+    entities:
+      - sensor.washer_status
+      - sensor.dryer_status
+      - sensor.washer_smart_dispense

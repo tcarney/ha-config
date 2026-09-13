@@ -1,4 +1,13 @@
+# Calendar kiosk
+#
+# One home view: the family calendar and chores, the photo frame (or the
+# dashboard timer's dial while it runs), and pop-ups for the calendar, the
+# weather, the stars, and the parent controls. The `#parents` pop-up opens
+# only while binary_sensor.parent_dashboard_unlock is on, and nothing on
+# the kiosk links to it.
 kiosk_mode:
+  mobile_settings:
+    hide_header: true
   non_admin_settings:
     kiosk: true
     hide_settings: true
@@ -159,6 +168,17 @@ views:
             icon: mdi:checkbox-multiple-outline
             heading: Tasks
             heading_style: title
+            # tap_action:
+            #   action: navigate
+            #   navigation_path: "#stars"
+            # badges:
+            #   - type: entity
+            #     entity: sensor.kid_star_jar
+            #     show_state: true
+            #     show_icon: true
+            #     tap_action:
+            #       action: navigate
+            #       navigation_path: "#stars"
           - type: custom:chore-calendar-card
             entities:
               - entity: calendar.daily_chores
@@ -168,9 +188,13 @@ views:
                 exclude:
                   - pending
                 color: yellow
+              - entity: calendar.kid_chores
+                exclude: []
+                color: blue
             hide_completed: false
             hide_section_headers: false
             hide_card_background: false
+            hide_show_all: true
             double_tap_action:
               action: complete
             tap_action:
@@ -216,6 +240,9 @@ views:
             grid_options:
               columns: full
         column_span: 2
+      # The photo frame, or the dashboard timer's dial in its place while a
+      # countdown is running, paused, or just finished (the done latch holds
+      # for a minute). Both fill the same slot; the section shows one.
       - type: grid
         cards:
           - type: iframe
@@ -224,6 +251,27 @@ views:
             grid_options:
               columns: full
               rows: 9
+            visibility:
+              - condition: state
+                entity: timer.dashboard
+                state: idle
+              - condition: state
+                entity: binary_sensor.dashboard_timer_done
+                state: "off"
+          - type: custom:streamline-card
+            template: timer_face
+            grid_options:
+              columns: full
+              rows: 9
+            visibility:
+              - condition: or
+                conditions:
+                  - condition: state
+                    entity: timer.dashboard
+                    state_not: idle
+                  - condition: state
+                    entity: binary_sensor.dashboard_timer_done
+                    state: "on"
         column_span: 2
       - type: grid
         cards:
@@ -302,4 +350,147 @@ views:
                     conditions_entity: sensor.weather_conditions
                     feels_like_entity: sensor.home_weather_feels_like_temperature
                     sun_event_entity: sensor.sun_status
+          - type: custom:streamline-card
+            template: popup
+            variables:
+              hash: "#stars"
+              name: Kid's Stars
+              width: 720px
+              cards:
+                - type: custom:star-jar-card
+                  entity: sensor.kid_star_jar
+                - type: grid
+                  columns: 2
+                  square: false
+                  cards:
+                    - type: tile
+                      entity: sensor.kid_bedtime_status
+                      name: Bedtime
+                      icon: mdi:weather-night
+                      tap_action:
+                        action: none
+                    - type: tile
+                      entity: binary_sensor.kid_school_day
+                      name: School
+                      state_content: detail
+                      tap_action:
+                        action: none
+                - type: heading
+                  heading: Ask for a star
+                  heading_style: title
+                - type: grid
+                  columns: 3
+                  square: false
+                  cards:
+                    - type: button
+                      name: Helped out
+                      icon: mdi:hand-heart
+                      icon_height: 50px
+                      tap_action:
+                        action: perform-action
+                        perform_action: script.kid_star_request
+                        data:
+                          reason: Helped out
+                        confirmation:
+                          text: Ask for a star for helping out?
+                    - type: button
+                      name: Kind to others
+                      icon: mdi:heart
+                      icon_height: 50px
+                      tap_action:
+                        action: perform-action
+                        perform_action: script.kid_star_request
+                        data:
+                          reason: Kind to others
+                        confirmation:
+                          text: Ask for a star for being kind?
+                    - type: button
+                      name: Extra effort
+                      icon: mdi:star-shooting
+                      icon_height: 50px
+                      tap_action:
+                        action: perform-action
+                        perform_action: script.kid_star_request
+                        data:
+                          reason: Extra effort
+                        confirmation:
+                          text: Ask for a star for extra effort?
+                - type: heading
+                  heading: Rewards
+                  heading_style: title
+                  grid_options:
+                    columns: 3
+                  badges:
+                    - type: entity
+                      entity: sensor.kid_rewards_available
+                      show_state: true
+                      show_icon: true
+                      tap_action:
+                        action: none
+                - type: conditional
+                  conditions:
+                    - condition: numeric_state
+                      entity: sensor.kid_rewards_available
+                      above: 0
+                  card:
+                    type: grid
+                    columns: 3
+                    square: false
+                    cards:
+                      - type: button
+                        name: Movie pick
+                        icon: mdi:movie-open
+                        icon_height: 50px
+                        tap_action:
+                          action: perform-action
+                          perform_action: star_jar.redeem
+                          target:
+                            entity_id: sensor.kid_star_jar
+                          data:
+                            reward: Movie pick
+                          confirmation:
+                            text: Spend a filled jar on a movie pick?
+                      - type: button
+                        name: Special treat
+                        icon: mdi:candy
+                        icon_height: 50px
+                        tap_action:
+                          action: perform-action
+                          perform_action: star_jar.redeem
+                          target:
+                            entity_id: sensor.kid_star_jar
+                          data:
+                            reward: Special treat
+                          confirmation:
+                            text: Spend a filled jar on a special treat?
+                      - type: button
+                        name: Game night
+                        icon: mdi:dice-multiple
+                        icon_height: 50px
+                        tap_action:
+                          action: perform-action
+                          perform_action: star_jar.redeem
+                          target:
+                            entity_id: sensor.kid_star_jar
+                          data:
+                            reward: Game night
+                          confirmation:
+                            text: Spend a filled jar on a family game night?
+          - type: custom:streamline-card
+            template: popup
+            variables:
+              hash: "#parents"
+              name: Parents
+              width: 720px
+              trigger:
+                - condition: state
+                  entity: binary_sensor.parent_dashboard_unlock
+                  state: "on"
+              trigger_close: true
+              auto_close: "300000"
+              cards:
+                - type: custom:streamline-card
+                  template: parent_controls
+                - type: custom:streamline-card
+                  template: timer_controls
     cards: []

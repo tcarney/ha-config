@@ -1,24 +1,19 @@
-# Interval Chore/Task Tracker — Template Blueprint
+# Interval Chore/Task Tracker
 # Place in: <config>/blueprints/template/chore_tracker/interval_task.yaml
 #
-# Creates a sensor that tracks whether an interval-based task has been
-# completed, using an entity's state timestamp as the completion signal.
-# Supported trigger entities: NFC tag, input_button, or input_datetime.
-# The next due time is calculated from the last completion + interval.
+# The next due time is the last completion plus the interval.
 #
 # Sensor states:
-#   completed  — last scan is within the interval
-#   due        — interval has elapsed since last scan
-#   overdue    — interval + grace period has elapsed since last scan
+#   completed  the last scan is within the interval
+#   due        the interval has elapsed since the last scan
+#   overdue    the interval plus the grace period has elapsed since the last scan
 #
 # Attributes exposed:
 #   last_completed, next_due
 #
-# Status: deprecated here, but complete and self-contained.
-#
-# This predates my chore_calendar integration
-# (https://github.com/tcarney/ha-chore-calendar), which now handles chore
-# tracking in this config.
+# Status: deprecated here, but complete and self-contained. It predates the
+# chore_calendar integration (https://github.com/tcarney/ha-chore-calendar),
+# which now handles chore tracking in this config.
 
 blueprint:
   name: "Interval Task Tracker"
@@ -72,8 +67,8 @@ blueprint:
     grace_period:
       name: "Grace Period"
       description: >
-        How long after the interval elapses before the task is
-        considered 'overdue' rather than just 'due'.
+        How long after the interval elapses before the task moves from
+        'due' to 'overdue'.
       default:
         days: 1
         hours: 0

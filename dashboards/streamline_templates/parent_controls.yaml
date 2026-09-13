@@ -1,0 +1,158 @@
+# Parent controls
+#
+# The controls a parent uses day to day: award presets and the plus/minus
+# adjust, the reward menu, and the request queue. One vertical stack, so the
+# same YAML backs the parents dashboard and the kiosk's `#parents` pop-up,
+# which binary_sensor.parent_dashboard_unlock gates. The reward names here
+# must match the kiosk's own Rewards buttons in calendar.yaml.
+#
+#   - type: custom:streamline-card
+#     template: parent_controls
+#
+# No variables: this is Kid's jar throughout, like the package behind it.
+
+card:
+  type: vertical-stack
+  cards:
+    - type: heading
+      icon: mdi:star-plus
+      heading: Award
+      heading_style: title
+      badges:
+        - type: entity
+          entity: sensor.kid_star_jar
+          show_state: true
+          show_icon: true
+        - type: button
+          icon: mdi:plus
+          tap_action:
+            action: perform-action
+            perform_action: star_jar.adjust
+            target:
+              entity_id: sensor.kid_star_jar
+            data:
+              stars: 1
+              reason: Parent adjustment
+        - type: button
+          icon: mdi:minus
+          tap_action:
+            action: perform-action
+            perform_action: star_jar.adjust
+            target:
+              entity_id: sensor.kid_star_jar
+            data:
+              stars: -1
+              reason: Parent adjustment
+            confirmation:
+              text: Take a star out of the jar?
+    - type: grid
+      columns: 3
+      square: false
+      cards:
+        - type: button
+          name: Good job
+          icon: mdi:star
+          icon_height: 40px
+          tap_action:
+            action: perform-action
+            perform_action: star_jar.award
+            target:
+              entity_id: sensor.kid_star_jar
+            data:
+              stars: 1
+              reason: Good job
+              source: parent
+        - type: button
+          name: Big help
+          icon: mdi:star-plus
+          icon_height: 40px
+          tap_action:
+            action: perform-action
+            perform_action: star_jar.award
+            target:
+              entity_id: sensor.kid_star_jar
+            data:
+              stars: 2
+              reason: Big help
+              source: parent
+        - type: button
+          name: Above and beyond
+          icon: mdi:star-shooting
+          icon_height: 40px
+          tap_action:
+            action: perform-action
+            perform_action: star_jar.award
+            target:
+              entity_id: sensor.kid_star_jar
+            data:
+              stars: 3
+              reason: Above and beyond
+              source: parent
+    - type: heading
+      icon: mdi:gift
+      heading: Rewards
+      heading_style: title
+      badges:
+        - type: entity
+          entity: sensor.kid_rewards_available
+          show_state: true
+          show_icon: true
+        - type: entity
+          entity: sensor.kid_rewards_redeemed
+          show_state: true
+          show_icon: true
+    - type: grid
+      columns: 3
+      square: false
+      cards:
+        - type: button
+          name: Movie pick
+          icon: mdi:movie-open
+          icon_height: 40px
+          tap_action:
+            action: perform-action
+            perform_action: star_jar.redeem
+            target:
+              entity_id: sensor.kid_star_jar
+            data:
+              reward: Movie pick
+            confirmation:
+              text: Redeem a filled jar for a movie pick?
+        - type: button
+          name: Special treat
+          icon: mdi:candy
+          icon_height: 40px
+          tap_action:
+            action: perform-action
+            perform_action: star_jar.redeem
+            target:
+              entity_id: sensor.kid_star_jar
+            data:
+              reward: Special treat
+            confirmation:
+              text: Redeem a filled jar for a special treat?
+        - type: button
+          name: Game night
+          icon: mdi:dice-multiple
+          icon_height: 40px
+          tap_action:
+            action: perform-action
+            perform_action: star_jar.redeem
+            target:
+              entity_id: sensor.kid_star_jar
+            data:
+              reward: Game night
+            confirmation:
+              text: Redeem a filled jar for a family game night?
+    - type: heading
+      icon: mdi:hand-heart
+      heading: Requests
+      heading_style: title
+      badges:
+        - type: entity
+          entity: todo.kid_star_requests
+          show_state: true
+          show_icon: true
+    - type: todo-list
+      entity: todo.kid_star_requests
+      hide_section_headers: true

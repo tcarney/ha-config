@@ -1,3 +1,7 @@
+# Media players
+#
+# One media_player group over every player in the house, for whole-home
+# status and control.
 media_player:
   - platform: group
     unique_id: home_media_players

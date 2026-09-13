@@ -1,5 +1,4 @@
 # Light Control for the python_script integration
-# Converted from a pyscript class-based implementation.
 #
 # Ordered, group-aware light control for a five-button remote: on, off, a
 # favorite level, and a dimmer that ramps in fixed steps.
@@ -21,7 +20,7 @@
 # want a lower favorite level and a finer ramp than a kitchen.
 #
 # The button names are this script's own vocabulary. A caller must map its
-# events onto them. Anything can call this: a remote, a dashboard button, 
+# events onto them. Anything can call this: a remote, a dashboard button,
 # a voice command.
 #
 #
@@ -29,8 +28,8 @@
 #
 # `lights` is an ordered list of steps. Each entry is expanded through group
 # membership to the lights behind it, so a group counts as one step while the
-# ramp still sees each member's own brightness. That matters: a light group
-# reports the mean of its members.
+# ramp still sees each member's own brightness. A light group reports only
+# the mean of its members, which is why the expansion is needed.
 #
 # Expansion stops at anything that is not a group, so a template light stays
 # whole and keeps its own behavior. Entities that do not exist are dropped.
@@ -44,8 +43,7 @@
 #             the order "on" built up
 #   favorite  set every light to the favorite level
 #   raise     ramp all steps up, in `steps` increments sized from the dimmest
-#             light, so lights that have drifted apart converge rather than
-#             spreading further
+#             light, so lights that have drifted apart converge
 #   lower     the same downward, sized from the brightest light
 #
 # A light that cannot take a brightness is treated as on/off: it switches at

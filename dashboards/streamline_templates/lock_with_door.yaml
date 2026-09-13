@@ -1,3 +1,19 @@
+# Lock with door
+#
+# A Bubble Card button for a lock that also shows whether its door is open.
+# The icon takes the lock's state colour and "Open" is appended to the state
+# while the door is open. The lock and unlock sub-buttons appear only while
+# the door is closed, so a lock is never thrown against an open door.
+#
+#   - type: custom:streamline-card
+#     template: lock_with_door
+#     variables:
+#       lock_entity: lock.front_door
+#       door_sensor: binary_sensor.front_door
+#
+# Required variables:
+#   lock_entity   the lock
+#   door_sensor   the door's opening sensor
 card:
   type: custom:bubble-card
   card_type: button

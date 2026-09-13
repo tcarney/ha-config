@@ -1,4 +1,14 @@
-## Sensor templates for aggregate states
+# Status sensors
+#
+# Sensor templates for aggregate states: counts of what is open, unlocked,
+# on or playing for the dashboard badges, and two display strings for the
+# weather sub-buttons.
+#
+# `sun_status` and `weather_conditions` are kept out of the recorder. Both
+# are wording derived from `sun.sun`, the UV index and `weather.home_weather`,
+# all recorded already, and `sun_status` rewrites itself every minute in the
+# hour before sunrise and sunset. The counters stay recorded: they only
+# write a row when a count changes, and that history is worth having.
 template:
   - use_blueprint:
       path: status_sensors/group_state_counter.yaml
@@ -227,3 +237,9 @@ template:
           {% else %}
             {{ label }}
           {% endif %}
+
+recorder:
+  exclude:
+    entities:
+      - sensor.sun_status
+      - sensor.weather_conditions

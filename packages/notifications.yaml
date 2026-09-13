@@ -1,12 +1,16 @@
+# Notifications
+#
+# A notify group for Tom's phone, and two scripts that wrap the
+# persistent_notification actions. Create requires a notification id, so
+# every notification can be tracked and dismissed consistently, and sends
+# the same message to the phone with that id as its tag. Dismiss clears
+# both the persistent notification and the phone's.
 notify:
   - platform: group
     name: "Tom Notification"
     services:
       - action: mobile_app_tom_phone
 
-# scripts to replace/wrap the persistent_notification actions
-#   create: requires a notification id to enforce consistent tracking
-#   dismiss: same as persistent_notification currently
 script:
   notification_create:
     alias: "Create Notification"

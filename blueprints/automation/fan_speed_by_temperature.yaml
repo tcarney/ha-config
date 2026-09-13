@@ -1,3 +1,5 @@
+# Fan Speed by Temperature
+# Place in: <config>/blueprints/automation/fan_speed_by_temperature.yaml
 blueprint:
   name: Fan Speed by Temperature
   description: >
@@ -5,9 +7,8 @@ blueprint:
     temperature sensor and a climate entity's cooling setpoint. When the
     room is at or below the setpoint, the fan runs at its lowest speed.
     As the room warms above the setpoint, speed scales linearly up to a
-    configurable maximum. Re-evaluates every 30 minutes. If the fan is
-    off, the automation does nothing (allowing local disable by turning
-    the fan off).
+    configurable maximum. Re-evaluates every 30 minutes. Turning the fan
+    off disables it.
   domain: automation
   input:
     fan_entity:

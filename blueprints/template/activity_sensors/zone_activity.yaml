@@ -1,13 +1,8 @@
 # Zone Activity
 # Place in: <config>/blueprints/template/activity_sensors/zone_activity.yaml
 #
-# Rolls several "something happened" sensors into one that stays on for a
-# while afterwards, so a zone reads as active rather than as a stream of
-# individual events.
-#
-# Any source turning on turns this on; it clears itself once the idle timeout
-# passes with nothing further. Because each trigger restarts the timeout, a
-# zone being used continuously stays on rather than flickering between events.
+# Each trigger restarts the idle timeout, so a zone in continuous use stays
+# on.
 #
 # Sources are usually the perimeter (doors, windows) and motion sensors for
 # one area, each already collected with a binary_sensor group so this sensor

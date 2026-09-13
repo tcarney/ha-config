@@ -1,0 +1,83 @@
+# Parents
+#
+# Parent-side surfaces. The award and adjust controls are the parent_controls
+# streamline template, which the calendar kiosk also shows in its `#parents`
+# pop-up while binary_sensor.parent_dashboard_unlock is on. The kiosks run
+# without toolbars, so they cannot navigate here on their own. `stars` is
+# the first view. Other parent-side views land here later.
+kiosk_mode:
+  mobile_settings:
+    hide_header: true
+  non_admin_settings:
+    kiosk: true
+    hide_settings: true
+    hide_dialog_header_action_items: true
+    hide_dialog_history_show_more: true
+    hide_dialog_logbook_show_more: true
+streamline_templates: !include_dir_named streamline_templates
+views:
+  - type: sections
+    max_columns: 1
+    title: Stars
+    path: stars
+    icon: mdi:star-shooting
+    sections:
+      - type: grid
+        cards:
+          - type: custom:streamline-card
+            template: parent_controls
+      - type: grid
+        cards:
+          - type: custom:streamline-card
+            template: timer_controls
+      - type: grid
+        cards:
+          - type: heading
+            heading: History
+            heading_style: title
+            icon: mdi:history
+          - type: markdown
+            content: >-
+              {% for entry in state_attr('sensor.kid_star_jar', 'recent') or
+              [] %}
+
+              **{{ (entry.at | as_datetime | as_local).strftime('%a %-I:%M
+              %p') }}** {{ entry.action }} {{ entry.stars }}{% if entry.action
+              != 'redeem' %} · {{ entry.reason }}{% endif %}{% if entry.reward
+              %} · {{ entry.reward }}{% endif %} · {{ entry.source }} · jar {{
+              entry.jar_before }} to {{ entry.jar_after }}{% if entry.jar_filled
+              %} · filled{% endif %}
+
+              {% else %}
+
+              No entries yet.
+
+              {% endfor %}
+      - type: grid
+        cards:
+          - type: heading
+            icon: mdi:magnify-scan
+            heading: Detectors
+            heading_style: title
+          # The two times are read-only here on purpose: they are tuned in star_jar.yaml, and a restart resets them to it.
+          - type: entities
+            entities:
+              - entity: sensor.kid_star_jar
+              - entity: sensor.kid_stars_today
+              - entity: sensor.kid_rewards_available
+              - entity: sensor.kid_rewards_redeemed
+              - entity: sensor.kid_star_message
+              - type: divider
+              - entity: binary_sensor.kid_school_day
+                name: School day
+              - entity: sensor.kid_morning_chores_remaining
+              - entity: sensor.kid_morning_chores_done
+              - entity: input_boolean.kid_morning_bonus_paid
+              - type: simple-entity
+                entity: input_datetime.kid_morning_target
+              - type: divider
+              - entity: input_boolean.kid_bedtime_star_pending
+              - entity: sensor.kid_bedtime_status
+              - type: simple-entity
+                entity: input_datetime.kid_bedtime
+              - entity: light.area_kid_bedroom

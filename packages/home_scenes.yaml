@@ -1,15 +1,13 @@
-## Home Scene Control
+# Home scene control
 #
-#  These entities set the current state of the home
-#  
-#  input_select.home_scene: 
-#    Scene as set by the user, exposed to HomeKit for schedules, etc.
+# The entities that set the current state of the home.
 #
-#  sensor.home_scene:
-#     Current home scene which accounts for user input and any other state conditions
-#
-#  automations:
-#     One automation for each scene value, these define the actions for each scene transition
+#   input_select.home_scene   the scene as set by the user, exposed to
+#                             HomeKit for schedules
+#   sensor.home_scene         the current scene, from the user's choice and
+#                             any other state conditions
+#   automations               one per scene value, defining the actions for
+#                             each scene transition
 input_select:
   home_scene:
     name: "Home Scene"

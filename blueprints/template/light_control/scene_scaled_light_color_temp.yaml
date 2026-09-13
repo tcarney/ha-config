@@ -1,23 +1,20 @@
 # Scene-Scaled Light (with color temperature)
 # Place in: <config>/blueprints/template/light_control/scene_scaled_light_color_temp.yaml
 #
-# Wraps a dimmable light and scales its brightness by a per-scene factor, so a
-# room can be capped at night without anything that drives the light knowing a
-# cap exists.
+# The cap belongs to the light, so nothing that drives it (a dimmer, a
+# dashboard, HomeKit, voice) needs to know a cap exists.
 #
 #   set_level  multiplies the requested brightness by the factor
 #   level      divides it back out, so callers still see a full 0-255 range
 #
 # Because the round trip is symmetric, a dimmer ramping 0-255 spans the capped
-# range in even steps rather than saturating partway up. Clamping instead of
-# scaling looks equivalent but is not: a controller that reads brightness back
-# sees its own writes ignored above the cap and the ramp stops moving.
+# range in even steps rather than saturating partway up. Clamping would stall
+# the ramp: a controller that reads brightness back sees its own writes
+# ignored above the cap and stops moving.
 #
-# A factor of 0 keeps the light off in that scene, including via turn_on.
+# A factor of 0 holds the light off even through turn_on.
 #
-# This variant also passes color temperature through to the source. Only
-# brightness is scaled; color temperature is never capped. For a
-# brightness-only light use scene_scaled_light.yaml.
+# For a brightness-only light, use scene_scaled_light.yaml.
 
 blueprint:
   name: "Scene-Scaled Light (color temperature)"

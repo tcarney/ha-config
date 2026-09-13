@@ -1,3 +1,5 @@
+# Sensor Left Open
+# Place in: <config>/blueprints/automation/sensor_left_open.yaml
 blueprint:
   name: Sensor Left Open
   description: >

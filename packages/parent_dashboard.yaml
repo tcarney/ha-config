@@ -1,0 +1,19 @@
+# Parent dashboard unlock
+#
+# The kiosks are unauthenticated, so the parent controls on them open only
+# while this sensor is on. A tap of the parents' NFC tag turns it on and it
+# clears itself five minutes later. The calendar kiosk's `#parents` pop-up
+# triggers on it and closes with it. Read as a lock: on is Unlocked.
+#
+# The tag is registered on the host (Settings, Tags) as "Parent Dashboard".
+
+template:
+  - triggers:
+      - trigger: tag
+        tag_id: f66e3ce0-d2e5-429b-87b0-54669efdacc1
+    binary_sensor:
+      - name: "Parent Dashboard Unlock"
+        unique_id: parent_dashboard_unlock
+        device_class: lock
+        state: "{{ true }}"
+        auto_off: "00:05:00"

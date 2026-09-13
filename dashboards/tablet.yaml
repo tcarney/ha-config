@@ -1,3 +1,8 @@
+# Tablet
+#
+# The main wall tablet. Views: home, calendar, cameras, one per floor
+# (first, second, basement), and outside. Bubble Card pop-ups and a navbar
+# throughout.
 kiosk_mode:
   mobile_settings:
     hide_header: true
@@ -112,12 +117,13 @@ views:
           action: none
       - type: entity
         show_name: true
-        show_state: false
-        entity: person.kid
+        show_state: true
+        show_icon: true
+        color: yellow
+        entity: sensor.kid_star_jar
         tap_action:
           action: none
-        show_entity_picture: false
-        icon: ""
+        name: Kid
       - type: entity
         show_name: false
         show_state: true

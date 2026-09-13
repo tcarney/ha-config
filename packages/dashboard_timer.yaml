@@ -1,0 +1,104 @@
+# Dashboard timer
+#
+# One countdown for the calendar kiosk. A parent starts it from the timer
+# controls (the `timer_controls` streamline template, in the parents
+# dashboard and the kiosk's `#parents` pop-up). While it runs, the kiosk's
+# photo frame gives way to a 60-minute dial (`timer_face`). For a minute
+# after it finishes, the dial holds at zero before the frame comes back.
+# Nothing here makes a sound.
+#
+# Entities:
+#   timer.dashboard                        the countdown itself
+#   sensor.dashboard_timer_remaining       seconds left, updated every second
+#                                          while the timer runs
+#   binary_sensor.dashboard_timer_done     on for the minute after it finishes
+#   script.dashboard_timer_pause_toggle    pause when active, resume when paused
+#
+# The timer entity only exposes `finishes_at`; nothing in the frontend ticks
+# a template, so the dial's readout and wedge come from a sensor a time
+# pattern trigger rewrites each second while the timer is active. It is kept
+# out of the recorder: a state a second is fine on the bus and useless in
+# history. A change of the timer itself (start, pause, cancel, finish) also
+# updates it, so it settles to the paused value or zero the moment the timer
+# does.
+#
+# `done` is a latch on the `timer.finished` event with a one-minute auto_off,
+# cleared early by `timer.started` so a new countdown never starts on top of
+# the finished screen.
+
+timer:
+  dashboard:
+    name: Dashboard Timer
+    icon: mdi:timer-outline
+    duration: "00:10:00"
+    restore: true
+
+template:
+  - triggers:
+      - trigger: time_pattern
+        seconds: "/1"
+      - trigger: state
+        entity_id: timer.dashboard
+    conditions:
+      - condition: template
+        value_template: >-
+          {{ trigger.platform == 'state' or is_state('timer.dashboard', 'active') }}
+    sensor:
+      - name: "Dashboard Timer Remaining"
+        unique_id: dashboard_timer_remaining
+        icon: mdi:timer-sand
+        unit_of_measurement: s
+        state: >-
+          {% if is_state('timer.dashboard', 'active') %}
+            {% set left = (as_datetime(state_attr('timer.dashboard', 'finishes_at')) - now()).total_seconds() %}
+            {{ [left | round(0, 'ceil') | int, 0] | max }}
+          {% elif is_state('timer.dashboard', 'paused') %}
+            {{ as_timedelta(state_attr('timer.dashboard', 'remaining')).total_seconds() | int }}
+          {% else %}
+            0
+          {% endif %}
+
+  - triggers:
+      - trigger: event
+        event_type: timer.finished
+        event_data:
+          entity_id: timer.dashboard
+      - trigger: event
+        event_type: timer.started
+        event_data:
+          entity_id: timer.dashboard
+    binary_sensor:
+      - name: "Dashboard Timer Done"
+        unique_id: dashboard_timer_done
+        icon: mdi:timer-check-outline
+        state: "{{ trigger.event.event_type == 'timer.finished' }}"
+        auto_off: "00:01:00"
+
+script:
+  dashboard_timer_pause_toggle:
+    alias: Dashboard timer pause or resume
+    icon: mdi:play-pause
+    description: Pauses the dashboard timer if it is running, resumes it if it is paused, and does nothing when it is idle.
+    sequence:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: timer.dashboard
+                state: active
+            sequence:
+              - action: timer.pause
+                target:
+                  entity_id: timer.dashboard
+          - conditions:
+              - condition: state
+                entity_id: timer.dashboard
+                state: paused
+            sequence:
+              - action: timer.start
+                target:
+                  entity_id: timer.dashboard
+
+recorder:
+  exclude:
+    entities:
+      - sensor.dashboard_timer_remaining

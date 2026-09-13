@@ -48,6 +48,12 @@ lovelace:
       title: Calendar
       icon: mdi:calendar
       show_in_sidebar: true
+    dashboard-parents:
+      mode: yaml
+      filename: dashboards/parents.yaml
+      title: Parents
+      icon: mdi:account-supervisor
+      show_in_sidebar: true
 
 # https://www.home-assistant.io/integrations/logger/
 logger:
@@ -55,3 +61,4 @@ logger:
   logs:
     # integration development
     custom_components.chore_calendar: debug
+    custom_components.star_jar: debug

@@ -1,5 +1,8 @@
-## Note: to reset devices find/replace 'c88c_' to generate new unique_id
-## Binary Sensors Groups define perimeter (open/close) and motion for separate areas
+# Activity sensors
+#
+# Binary sensor groups defining the perimeter (open/close) and motion for
+# each area. The unique_ids share the prefix 'c88c_'. To reset the devices,
+# find and replace that prefix so new unique_ids are generated.
 binary_sensor:
   - platform: group
     name: "Activity Home Perimeter"

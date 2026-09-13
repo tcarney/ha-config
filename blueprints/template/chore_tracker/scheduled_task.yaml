@@ -1,24 +1,18 @@
-# Scheduled Chore/Task Tracker — Template Blueprint
+# Scheduled Chore/Task Tracker
 # Place in: <config>/blueprints/template/chore_tracker/scheduled_task.yaml
 #
-# Creates a sensor that tracks whether a scheduled daily task has been
-# completed, using an entity's state timestamp as the completion signal.
-# Supported trigger entities: NFC tag, input_button, or input_datetime.
-#
 # Sensor states:
-#   completed  — tag was scanned within the current period
-#   pending    — we're inside the early-completion window, not yet scanned
-#   due        — the scheduled time has arrived, not yet scanned
-#   overdue    — past the scheduled time + grace period, not yet scanned
+#   completed  the tag was scanned within the current period
+#   pending    inside the early-completion window, not yet scanned
+#   due        the scheduled time has arrived, not yet scanned
+#   overdue    past the scheduled time plus the grace period, not yet scanned
 #
 # Attributes exposed:
 #   last_completed, next_due
 #
-# Status: deprecated here, but complete and self-contained.
-#
-# This predates my chore_calendar integration
-# (https://github.com/tcarney/ha-chore-calendar), which now handles chore
-# tracking in this config.
+# Status: deprecated here, but complete and self-contained. It predates the
+# chore_calendar integration (https://github.com/tcarney/ha-chore-calendar),
+# which now handles chore tracking in this config.
 
 blueprint:
   name: "Scheduled Task Tracker"
@@ -106,9 +100,9 @@ blueprint:
     grace_period:
       name: "Grace Period"
       description: >
-        How long after the scheduled time before the task is considered
-        'overdue' rather than just 'due'. For example, 1 hour means
-        an 8:00 task becomes overdue at 9:00.
+        How long after the scheduled time before the task moves from
+        'due' to 'overdue'. For example, 1 hour means an 8:00 task
+        becomes overdue at 9:00.
       default:
         hours: 1
         minutes: 0
