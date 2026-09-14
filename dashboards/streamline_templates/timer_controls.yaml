@@ -1,18 +1,21 @@
 # Timer controls
 #
-# The parent side of the dashboard timer: what is left, four preset starts,
-# pause or resume, cancel. One vertical stack, so the same YAML backs the
-# parents dashboard and the kiosk's `#parents` pop-up.
+# The parent side of the dashboard timer: what is left and what it is for,
+# four preset starts, a labelled homework countdown, pause or resume,
+# cancel. One vertical stack, so the same YAML backs the parents dashboard
+# and the kiosk's `#parents` pop-up.
 #
 #   - type: custom:streamline-card
 #     template: timer_controls
 #
 # No variables: there is one dashboard timer, like the package behind it.
 #
-# The tile shows the timer's own live countdown, which the frontend renders
-# for timer entities without any help. A preset pressed while a countdown is
-# running restarts it at the new duration; there is no confirmation because
-# that is the quickest way to change your mind. Cancel does confirm.
+# The countdown tile shows the timer's own live countdown, which the
+# frontend renders for timer entities without any help. The label tile opens
+# a field for a label. A preset pressed while a countdown is running restarts
+# it at the new duration. The homework button goes through the package's
+# start script, since a button performs one action and that one sets the
+# label too. Cancel does confirm.
 
 card:
   type: vertical-stack
@@ -21,11 +24,34 @@ card:
       icon: mdi:timer-outline
       heading: Timer
       heading_style: title
-    - type: tile
-      entity: timer.dashboard
-      name: Countdown
-      tap_action:
-        action: more-info
+    - type: grid
+      columns: 2
+      square: false
+      cards:
+        - type: tile
+          entity: timer.dashboard
+          name: Countdown
+          tap_action:
+            action: more-info
+        - type: tile
+          entity: input_text.dashboard_timer_label
+          name: Label
+          tap_action:
+            action: more-info
+    - type: grid
+      columns: 2
+      square: false
+      cards:
+        - type: button
+          name: Start Homework
+          icon: mdi:book-clock-outline
+          icon_height: 20px
+          tap_action:
+            action: perform-action
+            perform_action: script.dashboard_timer_start
+            data:
+              label: Homework
+              duration: "00:20:00"
     - type: grid
       columns: 4
       square: false

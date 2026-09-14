@@ -258,8 +258,10 @@ views:
               - condition: state
                 entity: binary_sensor.dashboard_timer_done
                 state: "off"
-          - type: custom:streamline-card
-            template: timer_face
+          - type: custom:timer-face-card
+            entity: timer.dashboard
+            label_entity: input_text.dashboard_timer_label
+            done_entity: binary_sensor.dashboard_timer_done
             grid_options:
               columns: full
               rows: 9

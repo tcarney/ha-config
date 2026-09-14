@@ -3,24 +3,31 @@
 # One countdown for the calendar kiosk. A parent starts it from the timer
 # controls (the `timer_controls` streamline template, in the parents
 # dashboard and the kiosk's `#parents` pop-up). While it runs, the kiosk's
-# photo frame gives way to a 60-minute dial (`timer_face`). For a minute
+# photo frame gives way to a 60-minute dial (`timer-face-card`). For a minute
 # after it finishes, the dial holds at zero before the frame comes back.
 # Nothing here makes a sound.
 #
 # Entities:
 #   timer.dashboard                        the countdown itself
-#   sensor.dashboard_timer_remaining       seconds left, updated every second
-#                                          while the timer runs
+#   input_text.dashboard_timer_label       what the countdown is for, shown
+#                                          above the readout
 #   binary_sensor.dashboard_timer_done     on for the minute after it finishes
+#   script.dashboard_timer_start           set the label and start, in one call
 #   script.dashboard_timer_pause_toggle    pause when active, resume when paused
 #
-# The timer entity only exposes `finishes_at`; nothing in the frontend ticks
-# a template, so the dial's readout and wedge come from a sensor a time
-# pattern trigger rewrites each second while the timer is active. It is kept
-# out of the recorder: a state a second is fine on the bus and useless in
-# history. A change of the timer itself (start, pause, cancel, finish) also
-# updates it, so it settles to the paused value or zero the moment the timer
-# does.
+# The label is free text so an automation can say anything ("Homework",
+# "Screen time ends"). It is cleared once the timer is over, on cancel or
+# when the finished screen goes, so a stale label never heads the next
+# countdown. Set it before or after starting, either order works.
+#
+# One countdown starts on its own: "Ready for school", thirty minutes
+# before the morning target (input_datetime.kid_morning_target, from the
+# star jar package) on a school day (binary_sensor.kid_school_day, same
+# package). The time trigger follows the helper, so tuning the target there
+# moves this too. It yields to a countdown already going.
+#
+# The dial (`www/timer-face-card.js`) counts down in the browser from the
+# timer's `finishes_at`, the way the tile card does, so nothing here ticks.
 #
 # `done` is a latch on the `timer.finished` event with a one-minute auto_off,
 # cleared early by `timer.started` so a new countdown never starts on top of
@@ -33,31 +40,61 @@ timer:
     duration: "00:10:00"
     restore: true
 
-template:
-  - triggers:
-      - trigger: time_pattern
-        seconds: "/1"
-      - trigger: state
-        entity_id: timer.dashboard
-    conditions:
-      - condition: template
-        value_template: >-
-          {{ trigger.platform == 'state' or is_state('timer.dashboard', 'active') }}
-    sensor:
-      - name: "Dashboard Timer Remaining"
-        unique_id: dashboard_timer_remaining
-        icon: mdi:timer-sand
-        unit_of_measurement: s
-        state: >-
-          {% if is_state('timer.dashboard', 'active') %}
-            {% set left = (as_datetime(state_attr('timer.dashboard', 'finishes_at')) - now()).total_seconds() %}
-            {{ [left | round(0, 'ceil') | int, 0] | max }}
-          {% elif is_state('timer.dashboard', 'paused') %}
-            {{ as_timedelta(state_attr('timer.dashboard', 'remaining')).total_seconds() | int }}
-          {% else %}
-            0
-          {% endif %}
+input_text:
+  dashboard_timer_label:
+    name: Dashboard Timer Label
+    icon: mdi:label-outline
+    max: 24
 
+automation:
+  - alias: "Dashboard Timer: School Countdown"
+    id: dashboard_timer_school_morning
+    description: Starts a thirty-minute "Ready for school" countdown that ends at the morning target.
+    mode: single
+    triggers:
+      - trigger: time
+        at:
+          entity_id: input_datetime.kid_morning_target
+          offset: "-00:30:00"
+    conditions:
+      - condition: state
+        entity_id: binary_sensor.kid_school_day
+        state: "on"
+      # A countdown a parent already has going, running or paused, is theirs.
+      - condition: state
+        entity_id: timer.dashboard
+        state: idle
+    actions:
+      - action: script.dashboard_timer_start
+        data:
+          label: Ready for school
+          duration: "00:30:00"
+
+  - alias: "Dashboard Timer: Clear Label"
+    id: dashboard_timer_clear_label
+    description: Blanks the label on cancel, and when the finished screen goes unless a new countdown has already started.
+    mode: queued
+    triggers:
+      - trigger: event
+        event_type: timer.cancelled
+        event_data:
+          entity_id: timer.dashboard
+      - trigger: state
+        entity_id: binary_sensor.dashboard_timer_done
+        from: "on"
+        to: "off"
+    conditions:
+      - condition: state
+        entity_id: timer.dashboard
+        state: idle
+    actions:
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.dashboard_timer_label
+        data:
+          value: ""
+
+template:
   - triggers:
       - trigger: event
         event_type: timer.finished
@@ -75,8 +112,38 @@ template:
         auto_off: "00:01:00"
 
 script:
+  # A dashboard button performs one action, so this is how a button starts
+  # a labelled countdown. Automations use it for the same reason.
+  dashboard_timer_start:
+    alias: "Dashboard Timer: start with a label"
+    icon: mdi:timer-play-outline
+    description: Sets the label and starts the dashboard timer for the given duration, restarting it if it is already running.
+    fields:
+      label:
+        description: What the countdown is for, shown above the readout. Leave empty for none.
+        example: Homework
+        selector:
+          text:
+      duration:
+        description: How long, as hh:mm:ss.
+        required: true
+        example: "00:20:00"
+        selector:
+          text:
+    sequence:
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.dashboard_timer_label
+        data:
+          value: "{{ label | default('') }}"
+      - action: timer.start
+        target:
+          entity_id: timer.dashboard
+        data:
+          duration: "{{ duration }}"
+
   dashboard_timer_pause_toggle:
-    alias: Dashboard timer pause or resume
+    alias: "Dashboard Timer: pause or resume"
     icon: mdi:play-pause
     description: Pauses the dashboard timer if it is running, resumes it if it is paused, and does nothing when it is idle.
     sequence:
@@ -97,8 +164,3 @@ script:
               - action: timer.start
                 target:
                   entity_id: timer.dashboard
-
-recorder:
-  exclude:
-    entities:
-      - sensor.dashboard_timer_remaining

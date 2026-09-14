@@ -17,7 +17,7 @@ integrations withheld (see [known gaps](#known-gaps)).
 | `dashboards/` | four YAML-mode dashboards + streamline card templates |
 | `python_scripts/` | ordered, group-aware light control for remotes |
 | `themes/` | modified catppuccin theme(s) |
-| `www/` | weather icons, backgrounds, fonts, the timer dial face |
+| `www/` | weather icons, backgrounds, fonts, the timer dial card and its face |
 
 The components are grouped below by where they live: [blueprints](#blueprints),
 [packages](#packages), and [dashboards](#dashboards).
@@ -65,10 +65,11 @@ reward. The file's header documents each detector, the tuning knobs, and the
 entries it expects on the host.
 
 **Dashboard timer.** `packages/dashboard_timer.yaml`. One countdown for the
-calendar kiosk. A parent starts it. While it runs, the kiosk's photo frame
-gives way to a 60-minute dial, and for a minute after it finishes the dial
-holds at zero with the readout turned red. The dial and the controls are
-streamline templates, described under [dashboards](#dashboards).
+calendar kiosk. While it runs, the kiosk's photo frame gives way to a 60-minute
+dial, and for a minute after it finishes the dial holds at zero with the
+readout turned red. The dial is `www/timer-face-card.js`, a plain custom
+card that counts down in the browser. The controls are a streamline template,
+described under [dashboards](#dashboards).
 
 **Parent dashboard unlock.** `packages/parent_dashboard.yaml`. The kiosks run
 unauthenticated, so the parent controls on them open only while this binary
@@ -110,11 +111,8 @@ card is defined once and reused across dashboards:
 - `parent_controls`: award presets, adjust, the reward menu and the request
   queue. The same YAML backs the parents dashboard and the kiosk's parents
   pop-up.
-- `timer_controls`: what is left, four preset starts, pause or resume, and
-  cancel.
-- `timer_face`: the 60-minute dial, a wedge that drains counter-clockwise
-  with the mm:ss readout in the middle. Its face is an SVG used as a CSS
-  mask.
+- `timer_controls`: the dashboard timer, controls to start timers, pause or 
+  resume, and cancel.
 
 ### YAML mode
 
@@ -167,13 +165,14 @@ clobber your automations.
 
 The dashboards render blank without these. Install from HACS:
 
-| | |
+| Component | Dependencies |
 |---|---|
-| Cards | `bubble-card`, `navbar-card`, `streamline-card`, `auto-entities`, `week-planner-card`, `yet-another-media-player`, `scrypted-nvr-camera`, `scrypted-nvr-events-carousel` |
-| Frontend | `card-mod` (loaded via `frontend.extra_module_url`), `kiosk-mode` (every dashboard's `kiosk_mode:` block depends on it) |
-| Integration | [`chore_calendar`](https://github.com/tcarney/ha-chore-calendar) (my own custom integration). It **ships the `chore-calendar-card`** used on the tablet, calendar and upstairs dashboards, so there is no separate card to install. |
+| Cards | `bubble-card`, `navbar-card`, `streamline-card`, `auto-entities`, `week-planner-card`, `yet-another-media-player` |
+| Frontend | `card-mod` (loaded via `frontend.extra_module_url`), `kiosk-mode` |
+| Integration | [`chore_calendar`](https://github.com/tcarney/ha-chore-calendar) (my own custom integration). It ships the `chore-calendar-card` used on the tablet, calendar and upstairs dashboards, so there is no separate card to install. |
 | Integration | [`star_jar`](https://github.com/tcarney/ha-star-jar) (my own custom integration, installed as a HACS custom repository). It **ships the `star-jar-card`** and registers it as a resource itself. The star jar package and the stars surfaces need it. |
 | Integration | [`Bubble Card Tools`](https://github.com/Clooos/Bubble-Card-Tools), required for Bubble Card's module system, which the weather card uses. It stores modules as YAML under `config/bubble_card/modules/`. |
+| Integration | [`scrypted`](https://github.com/koush/ha_scrypted) integrates with the `scrypted-nvr` system, includes the `scrypted-nvr-camera`, `scrypted-nvr-events-carousel` cards. |
 
 ## Known Gaps
 

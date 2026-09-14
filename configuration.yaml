@@ -26,6 +26,8 @@ frontend:
   extra_module_url:
     - /hacsfiles/lovelace-card-mod/card-mod.js?hacstag=190927524421
     - /hacsfiles/Bubble-Card/bubble-pop-up-fix.js
+    # Own card, in www/. Bump the query after editing it so the kiosks refetch.
+    - /local/timer-face-card.js?v=1
 
 ## Dashboards (yaml mode; top-level lovelace mode stays storage)
 lovelace:
