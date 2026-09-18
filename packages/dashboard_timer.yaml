@@ -3,22 +3,26 @@
 # One countdown for the calendar kiosk. A parent starts it from the timer
 # controls (the `timer_controls` streamline template, in the parents
 # dashboard and the kiosk's `#parents` pop-up). While it runs, the kiosk's
-# photo frame gives way to a 60-minute dial (`timer-face-card`). For a minute
-# after it finishes, the dial holds at zero before the frame comes back.
-# Nothing here makes a sound.
+# photo frame gives way to a 60-minute dial (`timer-face-card`). When it
+# finishes, the dial holds at zero, red, until someone taps it; then every
+# dashboard goes back to normal.
+# The dial chimes in the browser when a countdown starts and at each five
+# minutes left; nothing here plays a sound when it finishes, so an automation
+# can announce that on the house's speakers.
 #
 # Entities:
 #   timer.dashboard                        the countdown itself
 #   input_text.dashboard_timer_label       what the countdown is for, shown
 #                                          above the readout
-#   binary_sensor.dashboard_timer_done     on for the minute after it finishes
+#   input_boolean.dashboard_timer_shown    on while the dial should be on
+#                                          screen: from start to acknowledged
 #   script.dashboard_timer_start           set the label and start, in one call
 #   script.dashboard_timer_pause_toggle    pause when active, resume when paused
 #
 # The label is free text so an automation can say anything ("Homework",
-# "Screen time ends"). It is cleared once the timer is over, on cancel or
-# when the finished screen goes, so a stale label never heads the next
-# countdown. Set it before or after starting, either order works.
+# "Screen time ends"). It is cleared when the dial goes, on cancel or on
+# acknowledgement, so a stale label never heads the next countdown. Set it
+# before or after starting, either order works.
 #
 # One countdown starts on its own: "Ready for school", thirty minutes
 # before the morning target (input_datetime.kid_morning_target, from the
@@ -29,9 +33,11 @@
 # The dial (`www/timer-face-card.js`) counts down in the browser from the
 # timer's `finishes_at`, the way the tile card does, so nothing here ticks.
 #
-# `done` is a latch on the `timer.finished` event with a one-minute auto_off,
-# cleared early by `timer.started` so a new countdown never starts on top of
-# the finished screen.
+# `shown` is what the dashboards watch. It goes on with `timer.started` and
+# again with `timer.finished` (so a finished timer always shows Done, even if
+# someone switched it off mid-count), off with `timer.cancelled`, and off
+# when the card is tapped on the finished screen. Done, to the card, is
+# `shown` on with the timer idle.
 
 timer:
   dashboard:
@@ -45,6 +51,11 @@ input_text:
     name: Dashboard Timer Label
     icon: mdi:label-outline
     max: 24
+
+input_boolean:
+  dashboard_timer_shown:
+    name: Dashboard Timer Shown
+    icon: mdi:timer-check-outline
 
 automation:
   - alias: "Dashboard Timer: School Countdown"
@@ -72,15 +83,11 @@ automation:
 
   - alias: "Dashboard Timer: Clear Label"
     id: dashboard_timer_clear_label
-    description: Blanks the label on cancel, and when the finished screen goes unless a new countdown has already started.
+    description: Blanks the label when the dial goes, unless a new countdown has already started.
     mode: queued
     triggers:
-      - trigger: event
-        event_type: timer.cancelled
-        event_data:
-          entity_id: timer.dashboard
       - trigger: state
-        entity_id: binary_sensor.dashboard_timer_done
+        entity_id: input_boolean.dashboard_timer_shown
         from: "on"
         to: "off"
     conditions:
@@ -94,22 +101,30 @@ automation:
         data:
           value: ""
 
-template:
-  - triggers:
-      - trigger: event
-        event_type: timer.finished
-        event_data:
-          entity_id: timer.dashboard
+  - alias: "Dashboard Timer: Show and Hide"
+    id: dashboard_timer_shown
+    description: Puts the dial on the dashboards when the timer starts or finishes, and takes it off on cancel. Acknowledging the finished screen (a tap on the dial) takes it off too.
+    mode: queued
+    triggers:
       - trigger: event
         event_type: timer.started
         event_data:
           entity_id: timer.dashboard
-    binary_sensor:
-      - name: "Dashboard Timer Done"
-        unique_id: dashboard_timer_done
-        icon: mdi:timer-check-outline
-        state: "{{ trigger.event.event_type == 'timer.finished' }}"
-        auto_off: "00:01:00"
+        id: "on"
+      - trigger: event
+        event_type: timer.finished
+        event_data:
+          entity_id: timer.dashboard
+        id: "on"
+      - trigger: event
+        event_type: timer.cancelled
+        event_data:
+          entity_id: timer.dashboard
+        id: "off"
+    actions:
+      - action: "input_boolean.turn_{{ trigger.id }}"
+        target:
+          entity_id: input_boolean.dashboard_timer_shown
 
 script:
   # A dashboard button performs one action, so this is how a button starts

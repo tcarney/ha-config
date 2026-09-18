@@ -43,9 +43,7 @@ card:
       show_icon: true
       icon: none
       show_name: false
-      show_state: false
-      show_attribute: true
-      attribute: temperature
+      state_content: temperature
       scrolling_effect: true
       modules:
         - weather_forecast
@@ -87,18 +85,7 @@ card:
         .bubble-icon {
           --mdc-icon-size: 100px !important;
           background-size: cover;
-          background-image:
-            ${
-              (() => {
-                const condition = hass.states["[[weather_entity]]"].state;
-                const icon =
-                  (condition === "partlycloudy" &&
-                   hass.states["sun.sun"].state === "below_horizon")
-                    ? "[[icon_path]]/partly-cloudy-night.svg"
-                    : `[[icon_path]]/${condition}.svg`;
-                return `url("${icon}")`;
-              })()
-            }
+          background-image: url("[[icon_path]]/{{ 'partly-cloudy-night' if is_state(entity, 'partlycloudy') and is_state('sun.sun', 'below_horizon') else states(entity) }}.svg");
         }
 
         .bubble-name-container {

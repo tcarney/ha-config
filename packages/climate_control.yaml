@@ -9,7 +9,7 @@ generic_hygrostat:
     unique_id: generic_basement_dehum
     device_class: dehumidifier
     humidifier: switch.kasa_plug_six
-    target_sensor: sensor.basement_rts_humidity
+    target_sensor: sensor.fitness_room_rts_humidity
     target_humidity: 50
     dry_tolerance: 0
     wet_tolerance: 4
@@ -40,7 +40,7 @@ automation:
   conditions: []
   actions:
     - variables:
-        offset: 0
+        offset: 2
     - if:
         - or:
             - condition: state
@@ -52,7 +52,7 @@ automation:
               state: "Low Cool"
       then:
         - variables:
-            offset: 0
+            offset: 2
     - action: humidifier.set_humidity
       metadata: {}
       data:

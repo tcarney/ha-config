@@ -19,7 +19,7 @@ card:
   card_type: button
   button_type: state
   entity: "[[lock_entity]]"
-  show_state: true
+  state_content: "{{ state_translated(entity) }}{{ ', Open' if is_state('[[door_sensor]]', 'on') }}"
   tap_action:
     action: none
   button_action:
@@ -69,11 +69,8 @@ card:
             state: locked
         name: Unlock
   styles: |
-    .bubble-state::after {
-      content: "${hass.states['[[door_sensor]]'].state === 'on' ? ',\\a0 Open' : ''}";
-    }
     .bubble-icon {
-      color: var(--state-lock-${hass.states['[[lock_entity]]'].state}-color, var(--state-icon-color)) !important;
+      color: var(--state-lock-{{ states(entity) }}-color, var(--state-icon-color)) !important;
     }
     .bubble-sub-button {
       width: 105px !important;

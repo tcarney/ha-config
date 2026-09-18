@@ -51,7 +51,7 @@ card:
             perform_action: script.dashboard_timer_start
             data:
               label: Homework
-              duration: "00:20:00"
+              duration: "00:15:00"
     - type: grid
       columns: 4
       square: false

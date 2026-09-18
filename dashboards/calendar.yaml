@@ -241,8 +241,8 @@ views:
               columns: full
         column_span: 2
       # The photo frame, or the dashboard timer's dial in its place while a
-      # countdown is running, paused, or just finished (the done latch holds
-      # for a minute). Both fill the same slot; the section shows one.
+      # countdown is running, paused, or finished and not yet acknowledged.
+      # Both fill the same slot; the section shows one.
       - type: grid
         cards:
           - type: iframe
@@ -253,27 +253,19 @@ views:
               rows: 9
             visibility:
               - condition: state
-                entity: timer.dashboard
-                state: idle
-              - condition: state
-                entity: binary_sensor.dashboard_timer_done
+                entity: input_boolean.dashboard_timer_shown
                 state: "off"
           - type: custom:timer-face-card
             entity: timer.dashboard
             label_entity: input_text.dashboard_timer_label
-            done_entity: binary_sensor.dashboard_timer_done
+            shown_entity: input_boolean.dashboard_timer_shown
             grid_options:
               columns: full
               rows: 9
             visibility:
-              - condition: or
-                conditions:
-                  - condition: state
-                    entity: timer.dashboard
-                    state_not: idle
-                  - condition: state
-                    entity: binary_sensor.dashboard_timer_done
-                    state: "on"
+              - condition: state
+                entity: input_boolean.dashboard_timer_shown
+                state: "on"
         column_span: 2
       - type: grid
         cards:

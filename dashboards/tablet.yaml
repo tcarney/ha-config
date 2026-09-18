@@ -351,8 +351,6 @@ views:
                 entity: climate.econet_thermostat
                 show_name: true
                 show_state: false
-                show_attribute: false
-                attribute: current_temperature
                 tap_action:
                   action: none
                 hold_action:

@@ -18,8 +18,8 @@ navbar-templates:
         url: /nspanel-upstairs/home
       - icon: mdi:doorbell
         url: /nspanel-upstairs/doorbell
-      - icon: mdi:home-thermometer-outline
-        url: /nspanel-upstairs/climate
+      # - icon: mdi:home-thermometer-outline
+      #   url: /nspanel-upstairs/climate
       - icon: mdi:teddy-bear
         url: /nspanel-upstairs/kid-room
       - icon: mdi:star-shooting
@@ -61,38 +61,38 @@ views:
                 font-weight: 400 !important;
                 margin-block-start: 0;
               }
-    badges: &header-badges
-      - type: entity
-        show_name: false
-        show_state: true
-        show_icon: true
-        entity: sensor.home_scene
-        tap_action:
-          action: none
-      - type: entity
-        show_name: true
-        show_state: true
-        show_icon: true
-        entity: sensor.washer_status
-        visibility:
-          - condition: state
-            entity: sensor.washer_status
-            state_not:
-              - 'Off'
-              - Venting
-        tap_action:
-          action: none
-      - type: entity
-        show_name: true
-        show_state: true
-        show_icon: true
-        entity: sensor.dryer_status
-        visibility:
-          - condition: state
-            entity: sensor.dryer_status
-            state_not: 'Off'
-        tap_action:
-          action: none
+    # badges: &header-badges
+    #   - type: entity
+    #     show_name: false
+    #     show_state: true
+    #     show_icon: true
+    #     entity: sensor.home_scene
+    #     tap_action:
+    #       action: none
+    #   - type: entity
+    #     show_name: true
+    #     show_state: true
+    #     show_icon: true
+    #     entity: sensor.washer_status
+    #     visibility:
+    #       - condition: state
+    #         entity: sensor.washer_status
+    #         state_not:
+    #           - 'Off'
+    #           - Venting
+    #     tap_action:
+    #       action: none
+    #   - type: entity
+    #     show_name: true
+    #     show_state: true
+    #     show_icon: true
+    #     entity: sensor.dryer_status
+    #     visibility:
+    #       - condition: state
+    #         entity: sensor.dryer_status
+    #         state_not: 'Off'
+    #     tap_action:
+    #       action: none
     sections:
       - type: grid
         cards:
@@ -102,7 +102,7 @@ views:
             entity: weather.home_weather
             name: Weather
             show_name: false
-            show_state: false
+            state_content: temperature
             icon: none
             card_layout: large-2-rows
             sub_button:
@@ -138,20 +138,7 @@ views:
               .bubble-icon {
                 --mdc-icon-size: 80px;
                 background-size: cover;
-                background-image:
-                  ${ 
-                    (() => {
-                      const condition = hass.states["weather.home_weather"].state;
-
-                      const icon = 
-                        (condition === "partlycloudy" &&
-                         hass.states["sun.sun"].state === "below_horizon")
-                          ? "/local/weather_icons/partly-cloudy-night.svg"
-                          : `/local/weather_icons/${condition}.svg`;
-
-                      return `url("${icon}")`;
-                    })()
-                  }
+                background-image: url("/local/weather_icons/{{ 'partly-cloudy-night' if is_state(entity, 'partlycloudy') and is_state('sun.sun', 'below_horizon') else states(entity) }}.svg");
               }
               .bubble-name-container {
                 line-height: 100px;
@@ -165,8 +152,6 @@ views:
                 --state-inactive-color: rgba(0,0,0,0);
                 background-color:  rgba(0,0,0,0);
               } 
-            show_attribute: true
-            attribute: temperature
             show_icon: true
             button_action:
               tap_action:
@@ -390,12 +375,8 @@ views:
             icon: mdi:weather-night
             tap_action:
               action: none
-          - type: tile
-            entity: binary_sensor.kid_school_day
-            name: School
-            state_content: detail
-            tap_action:
-              action: none
+            grid_options:
+              columns: full
       - type: grid
         cards:
           - type: custom:navbar-card
