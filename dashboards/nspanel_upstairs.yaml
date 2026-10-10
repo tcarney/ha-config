@@ -114,8 +114,8 @@ views:
                   tap_action:
                     action: none
                 - name: Feels Like
-                  entity: sensor.home_weather_feels_like_temperature
-                  show_name: true
+                  entity: sensor.weather_feels_like
+                  show_name: false
                   show_state: true
                   show_background: false
                   tap_action:
@@ -179,7 +179,7 @@ views:
             compact: false
             locale: en
             showLocation: false
-            hidePastEvents: false
+            hidePastEvents: true
             hideDaysWithoutEvents: false
             hideTodayWithoutEvents: false
             combineSimilarEvents: true

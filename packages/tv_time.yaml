@@ -1,0 +1,70 @@
+# TV Time
+#
+# How long each Apple TV plays each day, for history now and for TV-time
+# rewards later. Nothing here reacts to the numbers yet.
+#
+# "Playing" means the Apple TV's media_player is in `playing`. Paused,
+# home-screen, and screensaver time do not count, and neither does a source
+# that bypasses the Apple TV (a console on another input). The whole family
+# shares the TVs, so nothing here says who is watching.
+#
+# Each sensor counts hours since local midnight and resets at midnight.
+# They are total_increasing, so long-term statistics read the midnight drop
+# as a meter reset and the daily `change` is that day's hours; it outlives
+# the recorder purge. The parents dashboard graphs the last 14 days. The
+# default, measurement, does not work here: history_stats refreshes once a
+# minute, so the hour after midnight still holds yesterday's total and a
+# daily max shows the larger of two days.
+#
+# Any TV counts wall-clock time with at least one TV playing, so two TVs
+# playing at once count once. It needs the template binary sensor below
+# because the media_player group reports `on`, not `playing`, when its
+# members disagree, and the house group in media_players.yaml also holds
+# the speakers.
+#
+# A new TV is one more history_stats sensor here and one more `or` in the
+# binary sensor.
+#
+# Reserved for the future 30-minute TV reward: timer.kid_tv_reward and
+# sensor.kid_tv_playing_today ("any TV playing while the timer runs"),
+# which would attribute that time to the child who redeemed it.
+
+template:
+  - binary_sensor:
+      - name: "Any TV Playing"
+        unique_id: tv_time_any_tv_playing
+        icon: mdi:television-play
+        state: >
+          {{ is_state('media_player.family_room_tv', 'playing')
+             or is_state('media_player.basement_tv', 'playing') }}
+
+sensor:
+  - platform: history_stats
+    name: "Family Room TV Playing Today"
+    unique_id: tv_time_family_room_tv_playing_today
+    entity_id: media_player.family_room_tv
+    state: playing
+    type: time
+    state_class: total_increasing
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+
+  - platform: history_stats
+    name: "Basement TV Playing Today"
+    unique_id: tv_time_basement_tv_playing_today
+    entity_id: media_player.basement_tv
+    state: playing
+    type: time
+    state_class: total_increasing
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+
+  - platform: history_stats
+    name: "Any TV Playing Today"
+    unique_id: tv_time_any_tv_playing_today
+    entity_id: binary_sensor.any_tv_playing
+    state: "on"
+    type: time
+    state_class: total_increasing
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"

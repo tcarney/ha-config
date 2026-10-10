@@ -1,0 +1,115 @@
+# Home badges
+#
+# The badge row under the clock on the tablet's and the calendar kiosk's home
+# views, pulled into both with `!include`. The Kid badge opens `#stars`
+# and the alerts badge opens `#alerts`. Each dashboard that includes this
+# file needs those pop-ups on its home view. The garage door badge has no
+# tap action; the tablet reaches `#alarm-locks` from its security tiles.
+#
+# HA re-reads a YAML dashboard only when the dashboard file's own mtime
+# moves, so `touch` both dashboards after editing this file.
+- type: entity
+  show_name: true
+  show_state: true
+  show_icon: true
+  entity: person.tom
+  tap_action:
+    action: none
+- type: entity
+  show_name: true
+  show_state: true
+  show_icon: true
+  entity: person.partner
+  tap_action:
+    action: none
+- type: entity
+  show_name: true
+  show_state: true
+  show_icon: true
+  color: yellow
+  entity: sensor.kid_star_jar
+  tap_action:
+    action: navigate
+    navigation_path: "#stars"
+  name: Kid
+- type: entity
+  show_name: true
+  show_state: true
+  show_icon: true
+  entity: vacuum.roborock_q5
+  visibility:
+    - condition: state
+      entity: vacuum.roborock_q5
+      state_not: docked
+  tap_action:
+    action: none
+- type: entity
+  show_name: false
+  show_state: true
+  show_icon: true
+  entity: cover.node_22
+  tap_action:
+    action: none
+  visibility:
+    - condition: state
+      entity: cover.node_22
+      state_not: closed
+- type: entity
+  show_name: true
+  show_state: true
+  show_icon: true
+  entity: sensor.washer_status
+  visibility:
+    - condition: state
+      entity: sensor.washer_status
+      state_not:
+        - "Off"
+        - Venting
+  tap_action:
+    action: none
+- type: entity
+  show_name: true
+  show_state: true
+  show_icon: true
+  entity: sensor.dryer_status
+  visibility:
+    - condition: state
+      entity: sensor.dryer_status
+      state_not: "Off"
+  tap_action:
+    action: none
+# No tap action: the kiosks are unauthenticated, and the default action
+# would let anyone open the toggle and switch downtime off.
+- type: entity
+  show_name: true
+  show_state: false
+  show_icon: true
+  entity: input_boolean.tv_down_time
+  name: TV Downtime
+  icon: mdi:television-off
+  color: indigo
+  tap_action:
+    action: none
+  visibility:
+    - condition: state
+      entity: input_boolean.tv_down_time
+      state: "on"
+# NOTE: leave active alerts badge last
+- type: entity
+  show_name: false
+  show_state: true
+  show_icon: true
+  entity: sensor.active_alerts
+  tap_action:
+    action: navigate
+    navigation_path: "#alerts"
+  color: red
+  card_mod:
+    style: |
+      ha-badge {
+        --ha-card-border-color: var(--red-color);
+      }
+  visibility:
+    - condition: numeric_state
+      entity: sensor.active_alerts
+      above: 0

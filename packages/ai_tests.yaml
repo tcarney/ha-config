@@ -5,7 +5,6 @@ script:
     sequence:
       - action: ai_task.generate_data
         data:
-          entity_id: ai_task.ollama_ai_task
           task_name: weather comfort report
           instructions: |
             Based on the current conditions:
@@ -28,11 +27,10 @@ script:
             {{ weather_report.data }}
 
   comfort_report:
-    alias: "Weather and comfort report"
+    alias: "Indoor comfort analysis"
     sequence:
       - action: ai_task.generate_data
         data:
-          entity_id: ai_task.ollama_ai_task
           task_name: indoor comfort analysis
           instructions: >
             Based on the current conditions:

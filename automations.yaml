@@ -348,12 +348,57 @@
   triggers:
   - trigger: event
     event_type: chore_calendar_status_changed
-    event_data: {}
-  conditions:
-  - condition: template
-    value_template: '{{ trigger.event.data.to_status  == ''completed'' }}'
+    event_data:
+      to_status: completed
+      source: tag
+  conditions: []
   actions:
   - action: esphome.kitchen_tagreader_rfidreader_tag_ok
     metadata: {}
     data: {}
+  mode: single
+- id: '1790349699143'
+  alias: 'Chores: Trash Collection'
+  description: ''
+  triggers:
+  - trigger: calendar.event_started
+    target:
+      entity_id: calendar.trash_collection
+    options:
+      offset:
+        hours: 12
+        minutes: 0
+        seconds: 0
+        days: 0
+      offset_type: before
+  conditions: []
+  actions:
+  - action: chore_calendar.update_item
+    data:
+      entity_id: sensor.home_chores_take_out_trash
+      oneshot:
+        persist: true
+        due_datetime: '{{ today_at("18:00:00") }}'
+  mode: single
+- id: '1790817195029'
+  alias: 'Chores: Brush Teeth'
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.sonicare_hx6340_9c60_brushing
+    to:
+    - 'on'
+    from:
+    - 'off'
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 30
+  conditions: []
+  actions:
+  - action: chore_calendar.complete_item
+    metadata: {}
+    data:
+      entity_id: sensor.kid_chores_brush_teeth
   mode: single

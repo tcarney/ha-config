@@ -100,90 +100,7 @@ views:
       card:
         type: custom:streamline-card
         template: clock_header
-    badges:
-      - type: entity
-        show_name: true
-        show_state: true
-        show_icon: true
-        entity: person.tom
-        tap_action:
-          action: none
-      - type: entity
-        show_name: true
-        show_state: true
-        show_icon: true
-        entity: person.partner
-        tap_action:
-          action: none
-      - type: entity
-        show_name: true
-        show_state: true
-        show_icon: true
-        color: yellow
-        entity: sensor.kid_star_jar
-        tap_action:
-          action: none
-        name: Kid
-      - type: entity
-        show_name: false
-        show_state: true
-        show_icon: true
-        entity: sensor.active_alerts
-        tap_action:
-          action: navigate
-          navigation_path: "#alerts"
-        color: red
-        visibility:
-          - condition: numeric_state
-            entity: sensor.active_alerts
-            above: 0
-      - type: entity
-        show_name: true
-        show_state: true
-        show_icon: true
-        entity: vacuum.roborock_q5
-        visibility:
-          - condition: state
-            entity: vacuum.roborock_q5
-            state_not: docked
-        tap_action:
-          action: none
-      - type: entity
-        show_name: false
-        show_state: true
-        show_icon: true
-        entity: cover.node_22
-        tap_action:
-          action: navigate
-          navigation_path: "#alarm-locks"
-        visibility:
-          - condition: state
-            entity: cover.node_22
-            state_not: closed
-      - type: entity
-        show_name: true
-        show_state: true
-        show_icon: true
-        entity: sensor.washer_status
-        visibility:
-          - condition: state
-            entity: sensor.washer_status
-            state_not:
-              - "Off"
-              - Venting
-        tap_action:
-          action: none
-      - type: entity
-        show_name: true
-        show_state: true
-        show_icon: true
-        entity: sensor.dryer_status
-        visibility:
-          - condition: state
-            entity: sensor.dryer_status
-            state_not: "Off"
-        tap_action:
-          action: none
+    badges: !include badges/home.yaml
     sections:
       - type: grid
         cards:
@@ -198,6 +115,11 @@ views:
                   - pending
                   - completed
                 color: purple
+              - entity: calendar.kid_chores
+                exclude:
+                  - pending
+                  - completed
+                color: blue
             hide_completed: true
             hide_section_headers: false
             hide_card_background: true
@@ -351,6 +273,11 @@ views:
                 entity: climate.econet_thermostat
                 show_name: true
                 show_state: false
+                state_color: false
+                styles: |
+                  ha-card {
+                    --bubble-climate-background-color: transparent;
+                  }
                 tap_action:
                   action: none
                 hold_action:
@@ -610,70 +537,63 @@ views:
               hash: "#home-media"
               name: Media Players
               cards:
-                - type: custom:yet-another-media-player
-                  entities:
-                    - entity_id: media_player.family_room_tv
-                    - entity_id: media_player.basement_tv
-                    - entity_id: media_player.kitchen_homepod
-                    - entity_id: media_player.living_room
-                    - entity_id: media_player.office_homepod
-                    - entity_id: media_player.kid_yoto
-                  disable_mass_queue: false
-                  show_chip_row: always
-                  match_theme: true
-                  alternate_progress_bar: false
-                  display_timestamps: true
-                  control_layout: modern
-                  adaptive_controls: false
-                  hide_active_entity_label: false
-                  adaptive_text_targets:
-                    - details
-                  details_alignment: center
-                  volume_mode: hidden
-                  hide_menu_player: false
-                  extend_artwork: false
-                  blurred_artwork: false
-                  hide_collapsed_artwork: false
-                  artwork_position: center center
-                  actions: []
-                  always_show_lyrics: false
-                  collapse_on_idle: true
-                  always_collapsed: false
-                  card_mod:
-                    style: |
-                      .more-info-menu,
-                      button[title="Shuffle"],
-                      button[title="Repeat"],
-                      button[title="Search"] {
-                        display: none !important;
-                      }
+                # One Bubble Card media player per playing member of the home
+                # group. The Bubble Media Player Enhanced module supplies the
+                # artwork background and progress bar. The else card shows
+                # when nothing is playing.
+                - type: custom:auto-entities
+                  card:
+                    type: vertical-stack
+                  card_param: cards
+                  else:
+                    type: custom:bubble-card
+                    card_type: button
+                    button_type: name
+                    name: Nothing is playing
+                    icon: mdi:speaker-off
+                    tap_action:
+                      action: none
+                    button_action:
+                      tap_action:
+                        action: none
+                  filter:
+                    include:
+                      - group: media_player.home_media_players
+                        state: playing
+                        options: &media_player_card
+                          type: custom:bubble-card
+                          card_type: media-player
+                          rows: 2.2
+                          cover_background: false
+                          main_buttons_position: bottom
+                          main_buttons_full_width: false
+                          hide:
+                            power_button: true
+                            next_button: true
+                            previous_button: true
+                          modules:
+                            - bubble_media_player_enhanced
+                          bubble_media_player_enhanced:
+                            progress_bar: full
+                      # - group: media_player.home_media_players
+                      #   state: paused
+                      #   options: *media_player_card
           - type: custom:streamline-card
             template: popup
             variables:
               hash: "#alerts"
               name: Active Alerts
               cards:
-                - type: custom:auto-entities
-                  card:
-                    type: vertical-stack
-                  card_param: cards
-                  filter:
-                    include:
-                      - options:
-                          type: tile
-                          entity: this.entity_id
-                          hide_state: true
-                        label: alerts
-                        or:
-                          - domain: binary_sensor
-                          - domain: input_boolean
-                        state: "on"
-                      - options:
-                          type: tile
-                          entity: this.entity_id
-                        label: alerts
-                        domain: sensor
-                        state: < 20
+                - type: custom:streamline-card
+                  template: active_alerts
+          - type: custom:streamline-card
+            template: popup
+            variables:
+              hash: "#stars"
+              name: Kid's Stars
+              cards:
+                - type: custom:streamline-card
+                  template: star_jar
       - type: grid
         cards: &footer-card
           - type: custom:streamline-card
@@ -687,7 +607,7 @@ views:
                   variables:
                     weather_entity: weather.home_weather
                     conditions_entity: sensor.weather_conditions
-                    feels_like_entity: sensor.home_weather_feels_like_temperature
+                    feels_like_entity: sensor.weather_feels_like
                     sun_event_entity: sensor.sun_status
           - type: custom:streamline-card
             template: popup

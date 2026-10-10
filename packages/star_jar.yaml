@@ -30,23 +30,22 @@
 #
 # Rewards: a full jar is one reward, and only a full jar is ever spent;
 # loose stars are never drained. There is one reward mechanism,
-# star_jar.redeem, and for now every reward is parent-mediated: redeeming
-# records the claim and notifies a parent, who provides the thing. A
-# self-service reward, when one exists, is a script that calls redeem first
-# and acts second, so a refused redeem never delivers. The reward menu lives
-# on the dashboards.
+# star_jar.redeem. Most rewards are parent-mediated: redeeming records the
+# claim and notifies a parent, who provides the thing. A self-service reward
+# is a script that calls redeem first and acts second, so a refused redeem
+# never delivers; the first is script.kid_redeem_morning_tv in
+# chore_rewards.yaml. The reward menu lives on the dashboards.
 #
-# Tuning knobs, all in this file:
+# Tuning knobs in this file:
 #   star_values                           per-chore star values, in
 #                                         "Star Jar: Chore Completed"
 #   group.kid_morning_chores           which chores make up the morning
 #                                         routine
-#   input_datetime.kid_bedtime         21:00 displayed target; judged 30
-#                                         minutes later
-#   input_datetime.kid_morning_target  09:00, when the morning bonus closes
 #
-# The two input_datetime helpers carry `initial`, so a restart resets them to
-# the values here. Tune them in this file, not in the UI.
+# Times live in schedules.yaml:
+#   input_datetime.kid_bedtime         target; judged 30 minutes later
+#   input_datetime.kid_morning_target  when the morning bonus closes; also
+#                                         the morning TV backstop
 #
 # Needs on the host, created in the UI because they are config-flow
 # integrations:
@@ -73,20 +72,6 @@
 # for the dashboards derived from the pending boolean and the bedtime
 # helper, which carry the history. The school-day sensor and the chore
 # counters stay recorded.
-
-input_datetime:
-  kid_bedtime:
-    name: "Kid Bedtime"
-    icon: mdi:weather-night
-    has_date: false
-    has_time: true
-    initial: "21:00:00"
-  kid_morning_target:
-    name: "Kid Morning Target"
-    icon: mdi:alarm-check
-    has_date: false
-    has_time: true
-    initial: "09:00:00"
 
 input_boolean:
   kid_bedtime_star_pending:

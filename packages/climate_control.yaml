@@ -16,7 +16,7 @@ generic_hygrostat:
     min_cycle_duration:
       minutes: 5
     sensor_stale_duration:
-      minutes: 60
+      minutes: 360
 
 automation:
   alias: "Climate: Sync Dehumidifiers"

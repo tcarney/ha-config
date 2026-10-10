@@ -1,0 +1,43 @@
+# Active alerts
+#
+# Every entity labeled `alerts` that is currently alerting: binary sensors
+# and input booleans that are on, shown without their state, and sensors
+# below 20, such as battery levels. One vertical stack, so the same YAML
+# backs the `#alerts` pop-up on the tablet and the calendar kiosk, which the
+# alerts badge in dashboards/badges/home.yaml opens.
+#
+#   - type: custom:streamline-card
+#     template: popup
+#     variables:
+#       hash: "#alerts"
+#       name: Active Alerts
+#       cards:
+#         - type: custom:streamline-card
+#           template: active_alerts
+#
+# No variables. To alert on a new entity, give it the `alerts` label. The
+# filter mirrors sensor.active_alerts in packages/status_sensors.yaml, which
+# the badge counts; change both together.
+
+card:
+  type: custom:auto-entities
+  card:
+    type: vertical-stack
+  card_param: cards
+  filter:
+    include:
+      - options:
+          type: tile
+          entity: this.entity_id
+          hide_state: true
+        label: alerts
+        or:
+          - domain: binary_sensor
+          - domain: input_boolean
+        state: "on"
+      - options:
+          type: tile
+          entity: this.entity_id
+        label: alerts
+        domain: sensor
+        state: < 20

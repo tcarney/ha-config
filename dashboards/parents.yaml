@@ -17,7 +17,7 @@ kiosk_mode:
 streamline_templates: !include_dir_named streamline_templates
 views:
   - type: sections
-    max_columns: 1
+    max_columns: 2
     title: Stars
     path: stars
     icon: mdi:star-shooting
@@ -56,28 +56,28 @@ views:
       - type: grid
         cards:
           - type: heading
-            icon: mdi:magnify-scan
-            heading: Detectors
+            heading: TV Time
             heading_style: title
-          # The two times are read-only here on purpose: they are tuned in star_jar.yaml, and a restart resets them to it.
+            icon: mdi:television-classic
           - type: entities
             entities:
-              - entity: sensor.kid_star_jar
-              - entity: sensor.kid_stars_today
-              - entity: sensor.kid_rewards_available
-              - entity: sensor.kid_rewards_redeemed
-              - entity: sensor.kid_star_message
-              - type: divider
-              - entity: binary_sensor.kid_school_day
-                name: School day
-              - entity: sensor.kid_morning_chores_remaining
-              - entity: sensor.kid_morning_chores_done
-              - entity: input_boolean.kid_morning_bonus_paid
-              - type: simple-entity
-                entity: input_datetime.kid_morning_target
-              - type: divider
-              - entity: input_boolean.kid_bedtime_star_pending
-              - entity: sensor.kid_bedtime_status
-              - type: simple-entity
-                entity: input_datetime.kid_bedtime
-              - entity: light.area_kid_bedroom
+              - entity: sensor.family_room_tv_playing_today
+                name: Family room
+              - entity: sensor.basement_tv_playing_today
+                name: Basement
+              - entity: sensor.any_tv_playing_today
+                name: Any TV
+          - type: statistics-graph
+            title: Last 14 days
+            entities:
+              - entity: sensor.family_room_tv_playing_today
+                name: Family room
+              - entity: sensor.basement_tv_playing_today
+                name: Basement
+              - entity: sensor.any_tv_playing_today
+                name: Any TV
+            stat_types:
+              - change
+            period: day
+            days_to_show: 14
+            chart_type: bar

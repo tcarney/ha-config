@@ -1,0 +1,91 @@
+# Star jar
+#
+# The child's side of the jar: the jar itself, the rewards-available count,
+# buttons to ask for a star, the prize-box redeem while a reward is
+# available, and the Morning TV redeem while homework has unlocked it
+# (chore_rewards.yaml). One vertical stack, so the same YAML backs the
+# `#stars` pop-up on the tablet and the calendar kiosk, which the Kid
+# badge in dashboards/badges/home.yaml opens. The reward names here must
+# not collide with the reward menu in parent_controls.
+#
+#   - type: custom:streamline-card
+#     template: popup
+#     variables:
+#       hash: "#stars"
+#       name: Kid's Stars
+#       width: 720px
+#       cards:
+#         - type: custom:streamline-card
+#           template: star_jar
+#
+# No variables: this is Kid's jar throughout, like the package behind it.
+
+card:
+  type: vertical-stack
+  cards:
+    - type: custom:star-jar-card
+      entity: sensor.kid_star_jar
+      height: 212
+    - type: heading
+      heading: Rewards
+      heading_style: title
+      badges:
+        - type: entity
+          entity: sensor.kid_rewards_available
+          show_state: true
+          show_icon: true
+          tap_action:
+            action: none
+    - type: entities
+      entities:
+        - type: button
+          name: Helped out
+          icon: mdi:hand-heart
+          action_name: Ask for star
+          tap_action:
+            action: perform-action
+            perform_action: script.kid_star_request
+            data:
+              reason: Helped out
+            confirmation:
+              text: Ask for a star for helping out?
+        - type: conditional
+          conditions:
+            - condition: numeric_state
+              entity: sensor.kid_rewards_available
+              above: 0
+          row:
+            type: button
+            name: Redeem from prize box
+            icon: mdi:gift
+            action_name: Redeem
+            tap_action:
+              action: perform-action
+              perform_action: star_jar.redeem
+              target:
+                entity_id: sensor.kid_star_jar
+              data:
+                reward: prize box
+              confirmation:
+                text: Spend a reward on the prize box?
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: input_boolean.kid_morning_tv_available
+              state: "on"
+            - condition: state
+              entity: input_boolean.tv_down_time
+              state: "on"
+            - condition: numeric_state
+              entity: sensor.kid_rewards_available
+              above: 0
+          row:
+            type: button
+            name: Morning TV
+            icon: mdi:television-play
+            action_name: Turn on TV
+            tap_action:
+              action: perform-action
+              perform_action: script.kid_redeem_morning_tv
+              confirmation:
+                text: Spend a reward on morning TV?

@@ -1,0 +1,132 @@
+# Clothing recommendation
+#
+# Writes a clothing suggestion for the day into the description of Kid's
+# "Get Dressed" chore, so it shows on her chore list when she needs it.
+#
+# Trigger: sensor.kid_chores_get_dressed turns `pending`. That follows the
+# chore's own schedule and pending period, so changing the chore's time needs
+# no change here. A transition out of unavailable or unknown (a restart or an
+# integration reload) is ignored, so a restart does not regenerate the text.
+#
+# Forecast window: 9 AM to 6 PM on the day the chore is due (the sensor's
+# `next_due`), taken from the hourly forecast of weather.home_weather. Hours
+# already past when the chore turns pending are absent from the forecast and
+# are skipped.
+#
+# Text: the default AI task entity writes the suggestion: one sentence that
+# describes the day's weather, then one or two sentences of clothing ideas,
+# phrased as suggestions rather than instructions. It picks one outfit for
+# the school day and covers a temperature swing with a removable layer,
+# never a change of clothes. If the AI task fails,
+# the description falls back to a plain summary (range of temperatures and
+# the highest chance of rain). If the forecast has no hours in the window, it
+# says so. Either way, yesterday's text never stays up.
+#
+# Tuning knobs:
+#   window_start / window_end   the hours of the day the forecast covers
+#   instructions                the prompt; wording, length, and style
+
+automation:
+  - id: clothing_recommendation_get_dressed
+    alias: "Daily: Clothing recommendation"
+    description: >-
+      Writes a weather-based clothing suggestion into the Get Dressed chore
+      when it turns pending.
+    mode: single
+    max_exceeded: silent
+    triggers:
+      - trigger: state
+        entity_id: sensor.kid_chores_get_dressed
+        to: pending
+        not_from:
+          - unavailable
+          - unknown
+    actions:
+      - action: weather.get_forecasts
+        target:
+          entity_id: weather.home_weather
+        data:
+          type: hourly
+        response_variable: forecast_response
+
+      - variables:
+          window_start: "09:00"
+          window_end: "18:00"
+          # Days from today to the due date; 0 when the chore has no due time.
+          day_offset: >-
+            {% set due = state_attr('sensor.kid_chores_get_dressed', 'next_due') %}
+            {{ ((as_datetime(due) | as_local).date() - now().date()).days if due else 0 }}
+          hours: >-
+            {% set start = today_at(window_start) + timedelta(days=day_offset | int) %}
+            {% set end = today_at(window_end) + timedelta(days=day_offset | int) %}
+            {% set ns = namespace(rows=[]) %}
+            {% for f in forecast_response['weather.home_weather'].forecast %}
+              {% set t = as_datetime(f.datetime) | as_local %}
+              {% if start <= t <= end %}
+                {% set ns.rows = ns.rows + [{
+                  'time': t.strftime('%-I %p'),
+                  'condition': f.condition,
+                  'temperature': f.temperature,
+                  'feels_like': f.apparent_temperature | default(f.temperature),
+                  'precip_chance': f.precipitation_probability | default(0),
+                  'wind': f.wind_speed | default(0),
+                }] %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.rows }}
+          summary: >-
+            {% if hours | count > 0 %}
+              {% set temps = hours | map(attribute='temperature') | list %}
+              {{ temps | min | round }}–{{ temps | max | round }}°F, {{ hours | map(attribute='precip_chance') | max }}% chance of rain
+            {% endif %}
+
+      - action: ai_task.generate_data
+        continue_on_error: true
+        data:
+          task_name: clothing recommendation
+          instructions: |
+            Hourly forecast from {{ window_start }} to {{ window_end }}:
+            {% for h in hours %}
+            - {{ h.time }}: {{ h.condition }}, {{ h.temperature }}°F (feels like {{ h.feels_like }}°F), {{ h.precip_chance }}% chance of rain, wind {{ h.wind }} mph
+            {% endfor %}
+
+            Help an elementary-school child choose clothes for today, based on
+            this forecast.
+
+            First, write one sentence that describes the day's weather: how
+            warm or cold it feels, and any rain or wind. Mention a change
+            during the day only if it matters, such as a cold morning that
+            warms up.
+
+            Then write one or two sentences of clothing ideas that suit that
+            weather, such as short or long sleeves, shorts or pants, and a
+            jacket, rain gear, or hat when needed. Suggest rather than
+            command: say what would be a good choice or what will feel
+            comfortable, so the child can pick from their own clothes.
+
+            The child is at school all day and cannot change clothes. Pick
+            one outfit for the whole day. When the day changes temperature,
+            choose a top for the warmest part of the day, bottoms that are
+            comfortable all day (pants if any part is cool), and handle the
+            cooler part with a layer the child can take off, such as a
+            jacket or sweatshirt. For example, a cool morning that turns warm
+            means pants and a t-shirt, with a jacket for the morning. Never
+            suggest changing clothes or swapping pants for shorts during
+            the day.
+
+            Address the child, in plain words a child can read. No lists, no
+            markdown, no emoji.
+        response_variable: recommendation
+
+      - action: chore_calendar.update_item
+        data:
+          entity_id: sensor.kid_chores_get_dressed
+          description: >-
+            {% if hours | count == 0 %}
+              No forecast available for today.
+            {% elif recommendation is defined and recommendation.data is defined
+                    and recommendation.data | trim | length > 0 %}
+              {{ recommendation.data | trim }}
+            {% else %}
+              Today: {{ summary | trim }}.
+            {% endif %}

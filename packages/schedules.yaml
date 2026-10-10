@@ -1,0 +1,38 @@
+# Schedules
+#
+# Every time-of-day helper lives here, so a time two features share is
+# defined once and its consumers are listed in one place. Moving a time
+# changes every feature listed against it.
+#
+#   kid_bedtime          21:00  star jar bedtime detector (judged 30
+#                                  minutes later), bedtime status sensor,
+#                                  dashboard timer, parents and upstairs
+#                                  dashboards
+#   kid_morning_target   09:15  star jar morning bonus closes; morning TV
+#                                  unlocks regardless of homework
+#                                  (chore_rewards.yaml); parents dashboard
+#   kid_tv_unlock        07:30  morning TV window opens when homework is
+#                                  clear (chore_rewards.yaml)
+#
+# Each helper carries `initial`, so a restart resets it to the value here.
+# Tune times in this file, not in the UI.
+
+input_datetime:
+  kid_bedtime:
+    name: "Kid Bedtime"
+    icon: mdi:weather-night
+    has_date: false
+    has_time: true
+    initial: "21:00:00"
+  kid_morning_target:
+    name: "Kid Morning Target"
+    icon: mdi:alarm-check
+    has_date: false
+    has_time: true
+    initial: "09:15:00"
+  kid_tv_unlock:
+    name: "Kid TV Unlock"
+    icon: mdi:television-play
+    has_date: false
+    has_time: true
+    initial: "07:30:00"

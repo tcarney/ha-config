@@ -24,11 +24,11 @@
 # acknowledgement, so a stale label never heads the next countdown. Set it
 # before or after starting, either order works.
 #
-# One countdown starts on its own: "Ready for school", thirty minutes
-# before the morning target (input_datetime.kid_morning_target, from the
-# star jar package) on a school day (binary_sensor.kid_school_day, same
-# package). The time trigger follows the helper, so tuning the target there
-# moves this too. It yields to a countdown already going.
+# One countdown starts on its own: thirty minutes before the morning target
+# (input_datetime.kid_morning_target, from the star jar package) on a
+# school day (binary_sensor.kid_school_day, same package). The time trigger
+# follows the helper, so tuning the target there moves this too. It yields
+# to a countdown already going.
 #
 # The dial (`www/timer-face-card.js`) counts down in the browser from the
 # timer's `finishes_at`, the way the tile card does, so nothing here ticks.
@@ -60,7 +60,7 @@ input_boolean:
 automation:
   - alias: "Dashboard Timer: School Countdown"
     id: dashboard_timer_school_morning
-    description: Starts a thirty-minute "Ready for school" countdown that ends at the morning target.
+    description: Starts a thirty-minute countdown that ends at the morning target.
     mode: single
     triggers:
       - trigger: time
@@ -78,7 +78,7 @@ automation:
     actions:
       - action: script.dashboard_timer_start
         data:
-          label: Ready for school
+          label: First Bell
           duration: "00:30:00"
 
   - alias: "Dashboard Timer: Clear Label"

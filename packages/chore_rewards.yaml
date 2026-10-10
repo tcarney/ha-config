@@ -1,0 +1,186 @@
+# Chore Rewards (Kid)
+#
+# Rewards tied to a chore's state. chore_calendar stays unaware of rewards;
+# this file only reads its chore sensors.
+#
+# Morning TV. HomeKit turns input_boolean.tv_down_time on at 01:00. On a
+# school day, early morning TV is a star-jar reward that homework unlocks;
+# on any other day, clear homework unlocks it for free:
+#   - between kid_tv_unlock and kid_morning_target, while downtime is
+#     on and homework is clear (at the unlock time, when homework leaves
+#     `overdue`, or on a restart inside the window):
+#       - if binary_sensor.kid_school_day (star_jar.yaml) is off,
+#         downtime turns off;
+#       - otherwise input_boolean.kid_morning_tv_available turns on. An
+#         unavailable school-day sensor counts as a school day, so a broken
+#         calendar never unlocks for free. A holiday missing from the
+#         family calendar reads as a school day;
+#   - while the flag and downtime are on and a reward is in the jar, the
+#     star-jar pop-up shows a Morning TV button; it runs
+#     script.kid_redeem_morning_tv, which spends one reward with
+#     star_jar.redeem first and only then turns downtime and the flag off.
+#     A refused redeem (no reward) stops the script with downtime still on;
+#   - at kid_morning_target, downtime turns off regardless and the flag
+#     clears, so no one pays for TV after the target;
+#   - on a restart after the target and before noon, the same as the target;
+#     on any other restart, the flag is set if the window rule above holds
+#     at that moment and cleared otherwise, so a flag a missed target left
+#     on (however long Home Assistant was down) cannot show the button
+#     before homework is clear.
+#
+# The flag is how the child knows homework earned the chance: the button
+# appears. Spending a whole jar on it is deliberate; on a school day,
+# homework alone no longer unlocks early TV. The redeem pings a parent
+# through the star jar's notification automation.
+#
+# Nothing turns downtime off after noon, so a downtime a parent turns on by
+# hand in the afternoon stays on through a restart. kid_tv_unlock must be
+# earlier than kid_morning_target; if it is not, the window runs from
+# kid_tv_unlock to noon.
+#
+# "Homework clear" means the chore is completed, pending, or due. A skip
+# (no homework tonight) reads completed. Homework not done stays overdue
+# until it is finished, however many periods pass, so the check needs no
+# knowledge of the homework schedule and every day without homework
+# unlocks at kid_tv_unlock. The clear states are listed rather than
+# testing for "not overdue" so an unavailable sensor sets no flag.
+#
+# Tuning knobs:
+#   input_datetime.kid_tv_unlock       window opens (schedules.yaml)
+#   input_datetime.kid_morning_target  window closes and TV unlocks
+#                                         regardless; shared with the star
+#                                         jar morning bonus (schedules.yaml)
+#   sensor.kid_chores_math_homework    the chore the reward reads; a
+#                                         second homework chore means a
+#                                         second trigger and condition here
+#   binary_sensor.kid_school_day       free unlock or reward; driven by
+#                                         "No School" events on the family
+#                                         calendar (star_jar.yaml)
+#   reward: Morning TV                    the ledger name, in the script;
+#                                         named in parent_controls' header
+
+input_boolean:
+  kid_morning_tv_available:
+    name: "Kid Morning TV Available"
+    icon: mdi:television-play
+
+automation:
+  - alias: "Chore Rewards: Morning TV"
+    id: chore_rewards_morning_tv
+    description: Makes morning TV redeemable once homework is clear, and turns downtime off at the morning target regardless.
+    mode: queued
+    triggers:
+      - trigger: time
+        at: input_datetime.kid_tv_unlock
+        id: unlock
+      - trigger: state
+        entity_id: sensor.kid_chores_math_homework
+        from: overdue
+        to:
+          - completed
+          - pending
+          - due
+        id: homework
+      - trigger: time
+        at: input_datetime.kid_morning_target
+        id: target
+      - trigger: homeassistant
+        event: start
+        id: start
+    actions:
+      - choose:
+          # The backstop: the target, or a restart after it before noon.
+          - alias: Backstop
+            conditions:
+              - condition: or
+                conditions:
+                  - condition: trigger
+                    id: target
+                  - condition: and
+                    conditions:
+                      - condition: trigger
+                        id: start
+                      - condition: time
+                        after: input_datetime.kid_morning_target
+                        before: "12:00:00"
+            sequence:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id:
+                    - input_boolean.tv_down_time
+                    - input_boolean.kid_morning_tv_available
+          # The window: unlock time, a homework change, or a restart, while
+          # downtime is on and homework is clear.
+          - alias: Eligible
+            conditions:
+              - condition: state
+                entity_id: input_boolean.tv_down_time
+                state: "on"
+              - condition: time
+                after: input_datetime.kid_tv_unlock
+                before: input_datetime.kid_morning_target
+              # A target set earlier than the unlock makes the window
+              # above cross midnight; noon keeps it to the morning.
+              - condition: time
+                after: input_datetime.kid_tv_unlock
+                before: "12:00:00"
+              - condition: state
+                entity_id: sensor.kid_chores_math_homework
+                state:
+                  - completed
+                  - pending
+                  - due
+            sequence:
+              # No school, no homework tomorrow: TV is free. Any other
+              # school-day state, unavailable included, means the reward.
+              - if:
+                  - condition: state
+                    entity_id: binary_sensor.kid_school_day
+                    state: "off"
+                then:
+                  - action: input_boolean.turn_off
+                    target:
+                      entity_id:
+                        - input_boolean.tv_down_time
+                        - input_boolean.kid_morning_tv_available
+                else:
+                  - action: input_boolean.turn_on
+                    target:
+                      entity_id: input_boolean.kid_morning_tv_available
+        # A restart that matched neither branch clears the flag: outside the
+        # window it is stale, and inside it homework is not clear (or
+        # downtime is already off).
+        default:
+          - if:
+              - condition: trigger
+                id: start
+            then:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.kid_morning_tv_available
+
+script:
+  # The first self-service star-jar reward. Redeem first, act second: a
+  # refused redeem raises and stops the script before downtime changes.
+  kid_redeem_morning_tv:
+    alias: "Kid Redeem Morning TV"
+    description: Spend one star-jar reward to turn TV downtime off before the morning target.
+    icon: mdi:television-play
+    mode: single
+    sequence:
+      - condition: state
+        entity_id: input_boolean.kid_morning_tv_available
+        state: "on"
+      - condition: state
+        entity_id: input_boolean.tv_down_time
+        state: "on"
+      - action: star_jar.redeem
+        target:
+          entity_id: sensor.kid_star_jar
+        data:
+          reward: Morning TV
+      - action: input_boolean.turn_off
+        target:
+          entity_id:
+            - input_boolean.tv_down_time
+            - input_boolean.kid_morning_tv_available

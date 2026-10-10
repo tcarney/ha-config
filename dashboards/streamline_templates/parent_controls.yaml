@@ -4,7 +4,8 @@
 # adjust, the reward menu, and the request queue. One vertical stack, so the
 # same YAML backs the parents dashboard and the kiosk's `#parents` pop-up,
 # which binary_sensor.parent_dashboard_unlock gates. The reward names here
-# must match the kiosk's own Rewards buttons in calendar.yaml.
+# must not collide with the child's own redeems in star_jar: "prize box"
+# and "Morning TV" (script.kid_redeem_morning_tv).
 #
 #   - type: custom:streamline-card
 #     template: parent_controls
@@ -45,14 +46,12 @@ card:
               reason: Parent adjustment
             confirmation:
               text: Take a star out of the jar?
-    - type: grid
-      columns: 3
-      square: false
-      cards:
+    - type: entities
+      entities:
         - type: button
           name: Good job
+          action_name: +1 star
           icon: mdi:star
-          icon_height: 40px
           tap_action:
             action: perform-action
             perform_action: star_jar.award
@@ -64,8 +63,8 @@ card:
               source: parent
         - type: button
           name: Big help
+          action_name: +2 stars
           icon: mdi:star-plus
-          icon_height: 40px
           tap_action:
             action: perform-action
             perform_action: star_jar.award
@@ -77,8 +76,8 @@ card:
               source: parent
         - type: button
           name: Above and beyond
+          action_name: +3 stars
           icon: mdi:star-shooting
-          icon_height: 40px
           tap_action:
             action: perform-action
             perform_action: star_jar.award
@@ -101,14 +100,12 @@ card:
           entity: sensor.kid_rewards_redeemed
           show_state: true
           show_icon: true
-    - type: grid
-      columns: 3
-      square: false
-      cards:
+    - type: entities
+      entities:
         - type: button
           name: Movie pick
+          action_name: Redeem
           icon: mdi:movie-open
-          icon_height: 40px
           tap_action:
             action: perform-action
             perform_action: star_jar.redeem
@@ -117,11 +114,11 @@ card:
             data:
               reward: Movie pick
             confirmation:
-              text: Redeem a filled jar for a movie pick?
+              text: Redeem a reward for a movie pick?
         - type: button
           name: Special treat
+          action_name: Redeem
           icon: mdi:candy
-          icon_height: 40px
           tap_action:
             action: perform-action
             perform_action: star_jar.redeem
@@ -130,11 +127,11 @@ card:
             data:
               reward: Special treat
             confirmation:
-              text: Redeem a filled jar for a special treat?
+              text: Redeem a reward for a special treat?
         - type: button
           name: Game night
+          action_name: Redeem
           icon: mdi:dice-multiple
-          icon_height: 40px
           tap_action:
             action: perform-action
             perform_action: star_jar.redeem
@@ -143,7 +140,7 @@ card:
             data:
               reward: Game night
             confirmation:
-              text: Redeem a filled jar for a family game night?
+              text: Redeem a reward for a family game night?
     - type: heading
       icon: mdi:hand-heart
       heading: Requests

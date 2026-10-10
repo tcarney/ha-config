@@ -1,14 +1,19 @@
 # Status sensors
 #
 # Sensor templates for aggregate states: counts of what is open, unlocked,
-# on or playing for the dashboard badges, and two display strings for the
+# on or playing for the dashboard badges, and three display strings for the
 # weather sub-buttons.
 #
-# `sun_status` and `weather_conditions` are kept out of the recorder. Both
-# are wording derived from `sun.sun`, the UV index and `weather.home_weather`,
-# all recorded already, and `sun_status` rewrites itself every minute in the
-# hour before sunrise and sunset. The counters stay recorded: they only
-# write a row when a count changes, and that history is worth having.
+# `weather_feels_like` reads "Feels Like · 59°" and switches its icon to
+# `mdi:thermometer-alert` when the apparent temperature differs from the
+# actual temperature by 5° or more, in either direction.
+#
+# `sun_status`, `weather_conditions`, and `weather_feels_like` are kept out of
+# the recorder. All three are wording derived from `sun.sun`, the UV index and
+# `weather.home_weather`, all recorded already, and `sun_status` rewrites
+# itself every minute in the hour before sunrise and sunset. The counters stay
+# recorded: they only write a row when a count changes, and that history is
+# worth having.
 template:
   - use_blueprint:
       path: status_sensors/group_state_counter.yaml
@@ -116,7 +121,7 @@ template:
 
           {{ ns.count }}
         unit_of_measurement: "Alerts"
-        icon: mdi:bell-alert
+        icon: mdi:alert-decagram-outline
 
   # Sun sub-button text: counts down to the next sunrise/sunset, or reports the
   # UV index when it is high enough to matter. Re-renders every minute because
@@ -155,6 +160,21 @@ template:
             {{ 'Sunrise' if night else 'Sunset' }} in {{ ns.text if ns.text else '0 minutes' }}
           {% endif %}
         {% endif %}
+
+  - sensor:
+      name: "Weather Feels Like"
+      unique_id: c88c_weather_feels_like
+      icon: >
+        {% set current = state_attr('weather.home_weather', 'temperature') | float(none) %}
+        {% set feels_like = state_attr('weather.home_weather', 'apparent_temperature') | float(none) %}
+        {% if current is not none and feels_like is not none and (current - feels_like) | abs >= 5 %}
+          mdi:thermometer-alert
+        {% else %}
+          mdi:thermometer
+        {% endif %}
+      state: >
+        {% set feels_like = state_attr('weather.home_weather', 'apparent_temperature') %}
+        Feels Like · {{ (feels_like | round(0) | int) ~ '°' if feels_like != None else '—' }}
 
   - trigger:
       - platform: time_pattern
@@ -229,11 +249,11 @@ template:
           {% set show_high = (ns.high - current) > 2 %}
           {% set show_low = (current - ns.low) > 2 %}
           {% if show_high and show_low %}
-            {{ label }} · {{ ns.high | round(0) | int }}°F / {{ ns.low | round(0) | int }}°F
+            {{ label }} · {{ ns.high | round(0) | int }}° / {{ ns.low | round(0) | int }}°
           {% elif show_high %}
-            {{ label }} · High {{ ns.high | round(0) | int }}°F
+            {{ label }} · High {{ ns.high | round(0) | int }}°
           {% elif show_low %}
-            {{ label }} · Low {{ ns.low | round(0) | int }}°F
+            {{ label }} · Low {{ ns.low | round(0) | int }}°
           {% else %}
             {{ label }}
           {% endif %}
@@ -243,3 +263,4 @@ recorder:
     entities:
       - sensor.sun_status
       - sensor.weather_conditions
+      - sensor.weather_feels_like
